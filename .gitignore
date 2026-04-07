@@ -1,0 +1,15 @@
+# 不要上傳的檔案
+.DS_Store
+__pycache__/
+*.pyc
+.env
+*.key
+
+# 知識庫內容（客戶資料，不上傳）
+knowledge-base/*.md
+!knowledge-base/example.md
+
+# 原始文件
+*.docx
+*.pdf
+*.pptx

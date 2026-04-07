@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATD-IIIEDU 知識圖譜</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+
+  #canvas { width: 100vw; height: 100vh; cursor: grab; }
+  #canvas:active { cursor: grabbing; }
+
+  #sidebar {
+    position: fixed; right: 0; top: 0; width: 320px; height: 100vh;
+    background: #16213e; border-left: 1px solid #0f3460;
+    padding: 20px; overflow-y: auto;
+    transform: translateX(100%); transition: transform 0.3s ease;
+    z-index: 10;
+  }
+  #sidebar.open { transform: translateX(0); }
+  #sidebar h2 { color: #7c83fd; font-size: 16px; margin-bottom: 8px; }
+  #sidebar .tag { display: inline-block; background: #0f3460; color: #7c83fd; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin: 2px; }
+  #sidebar .links a { display: block; color: #a78bfa; font-size: 13px; padding: 4px 0; text-decoration: none; cursor: pointer; }
+  #sidebar .links a:hover { color: #fff; }
+  #sidebar .content { font-size: 13px; color: #aaa; line-height: 1.7; margin-top: 10px; }
+  #sidebar .close-btn { position: absolute; top: 12px; right: 12px; cursor: pointer; color: #666; font-size: 18px; }
+  #sidebar .close-btn:hover { color: #fff; }
+  #open-file-btn {
+    display: none; margin-top: 14px; width: 100%;
+    background: #0f3460; border: 1px solid #7c83fd; color: #7c83fd;
+    padding: 8px 0; border-radius: 8px; cursor: pointer; font-size: 13px;
+    transition: all 0.2s;
+  }
+  #open-file-btn:hover { background: #7c83fd; color: #fff; }
+  .section-title { font-size: 11px; color: #555; margin-top: 14px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+  #md-viewer {
+    display: none; position: fixed; top: 0; left: 0; right: 320px; bottom: 0;
+    background: #0d1117; overflow-y: auto; padding: 40px 60px;
+    z-index: 5; border-right: 1px solid #0f3460;
+  }
+  #md-viewer.open { display: block; }
+  #md-viewer .close-md { position: fixed; top: 16px; left: 16px; cursor: pointer;
+    background: #16213e; border: 1px solid #0f3460; color: #7c83fd;
+    padding: 6px 12px; border-radius: 6px; font-size: 12px; z-index: 6; }
+  #md-viewer .close-md:hover { background: #7c83fd; color: #fff; }
+  #md-content { max-width: 760px; margin: 0 auto; margin-top: 20px;
+    font-size: 14px; line-height: 1.8; color: #cdd9e5; }
+  #md-content h1 { color: #7c83fd; font-size: 22px; margin-bottom: 16px; border-bottom: 1px solid #0f3460; padding-bottom: 8px; }
+  #md-content h2 { color: #a78bfa; font-size: 17px; margin-top: 24px; margin-bottom: 10px; }
+  #md-content h3 { color: #60a5fa; font-size: 14px; margin-top: 16px; }
+  #md-content table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  #md-content th { background: #0f3460; color: #7c83fd; padding: 8px 12px; text-align: left; font-size: 12px; }
+  #md-content td { padding: 7px 12px; border-bottom: 1px solid #1a2744; font-size: 13px; }
+  #md-content tr:hover td { background: #111827; }
+  #md-content code { background: #1e2a3a; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #34d399; }
+  #md-content blockquote { border-left: 3px solid #7c83fd; padding-left: 16px; color: #888; margin: 12px 0; }
+  #md-content strong { color: #f0f0f0; }
+  #md-content a { color: #7c83fd; text-decoration: none; }
+  #md-content hr { border: none; border-top: 1px solid #1a2744; margin: 20px 0; }
+
+  #controls {
+    position: fixed; left: 20px; bottom: 20px;
+    display: flex; gap: 8px; z-index: 10;
+  }
+  #controls button {
+    background: #16213e; border: 1px solid #0f3460; color: #7c83fd;
+    padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px;
+    transition: all 0.2s;
+  }
+  #controls button:hover { background: #0f3460; color: #fff; }
+
+  #title {
+    position: fixed; left: 20px; top: 20px;
+    font-size: 13px; color: #555; z-index: 10;
+  }
+  #title span { color: #7c83fd; font-weight: bold; }
+
+  .tooltip {
+    position: fixed; background: #16213e; border: 1px solid #0f3460;
+    padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #ccc;
+    pointer-events: none; z-index: 20; display: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="title">ATD-IIIEDU / <span>知識圖譜</span></div>
+<canvas id="canvas"></canvas>
+<div class="tooltip" id="tooltip"></div>
+
+<div id="sidebar">
+  <span class="close-btn" onclick="closeSidebar()">✕</span>
+  <h2 id="sb-title"></h2>
+  <div id="sb-tags"></div>
+  <div class="content" id="sb-content"></div>
+  <button id="open-file-btn" onclick="openFile()">📄 開啟原始檔案</button>
+  <div class="section-title">正向連結</div>
+  <div class="links" id="sb-links"></div>
+  <div class="section-title">反向連結</div>
+  <div class="links" id="sb-backlinks"></div>
+</div>
+
+<div id="md-viewer">
+  <span class="close-md" onclick="closeMd()">← 返回圖譜</span>
+  <div id="md-content"></div>
+</div>
+
+<div id="controls">
+  <button onclick="resetZoom()">重置視圖</button>
+  <button onclick="toggleLabels()">切換標籤</button>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// 知識節點資料
+const nodes = [
+  {
+    id: 'index', label: '00-INDEX', type: 'index',
+    x: 0, y: 0, r: 28,
+    color: '#7c83fd',
+    title: '知識庫索引',
+    file: '00-INDEX.md',
+    tags: ['#ATD', '#CSDI', '#知識庫'],
+    content: '整體導覽入口。包含所有筆記的快速查詢對應表、最重要的 5 個數字，以及原始檔案對照。',
+    links: ['q1q5', 'data']
+  },
+  {
+    id: 'q1q5', label: 'Q1-Q5 完整版', type: 'main',
+    x: -200, y: -120, r: 38,
+    color: '#a78bfa',
+    title: 'ATD 獎項申請 Q1-Q5',
+    file: '01-ATD獎項申請-Q1-Q5完整版.md',
+    tags: ['#申請文件', '#CSDI', '#AI人才培育', '#可信賴AI'],
+    content: 'CSDI 的完整申請論述。涵蓋：為何值得獲獎、創新文化、持續學習機制、商業背景與創新方案、成效與可複製性。',
+    links: ['index', 'data', 'q1', 'q2', 'q3', 'q4', 'q5']
+  },
+  {
+    id: 'data', label: '數據速查', type: 'main',
+    x: 200, y: -120, r: 32,
+    color: '#34d399',
+    title: '數據與成效速查',
+    file: '02-數據與成效速查.md',
+    tags: ['#數據', '#成效', '#關鍵數字'],
+    content: '所有關鍵數字彙整。包括規模數字、學習平台、人才培育、組織轉型、預算投資、國際影響。',
+    links: ['index', 'q1q5', 'intl', 'partners']
+  },
+  {
+    id: 'q1', label: 'Q1 為何值得獲獎', type: 'sub',
+    x: -360, y: -60, r: 22,
+    color: '#f472b6',
+    title: 'Q1：為何值得獲獎',
+    tags: ['#五大差異', '#規模', '#參與率'],
+    content: '五大全球獨特差異化特點：規模與參與文化、全球首創學習架構、系統性混成學習、跨部門創新生態、制度化同儕知識倍增。',
+    links: ['q1q5']
+  },
+  {
+    id: 'q2', label: 'Q2 創新文化', type: 'sub',
+    x: -380, y: 60, r: 22,
+    color: '#f472b6',
+    title: 'Q2：創新文化',
+    tags: ['#敏捷開發', '#數據驅動', '#由上而下', '#由下而上'],
+    content: '由上而下（總統層級 AI 內閣 2.0）與由下而上（自願參與、99.97% 參與率）雙機制。預算增加 340%。',
+    links: ['q1q5']
+  },
+  {
+    id: 'q3', label: 'Q3 持續學習', type: 'sub',
+    x: -300, y: 160, r: 22,
+    color: '#f472b6',
+    title: 'Q3：持續學習與創新',
+    tags: ['#AI加速AI', '#混成學習', '#ONO'],
+    content: 'AI 加速 AI 學習三大支柱：課程優化、生成式 AI 開發、智慧分析個人化。每月分析 125 萬學習者資料。',
+    links: ['q1q5']
+  },
+  {
+    id: 'q4', label: 'Q4 商業背景', type: 'sub',
+    x: -140, y: 230, r: 22,
+    color: '#f472b6',
+    title: 'Q4：商業情境與創新方案',
+    tags: ['#AI學習地圖', '#認證系統', '#人本設計'],
+    content: '面對台灣地緣政治、產業轉型三重挑戰，CSDI 創建 AI 學習地圖（捷運視覺化）、漸進式認證、AI 加速 AI 教學法、ONO 混成學習。',
+    links: ['q1q5']
+  },
+  {
+    id: 'q5', label: 'Q5 成效與複製', type: 'sub',
+    x: 60, y: 230, r: 22,
+    color: '#f472b6',
+    title: 'Q5：成效、永續性與可複製性',
+    tags: ['#五大維度', '#三層架構', '#國際複製'],
+    content: '五大維度成效：參與投入、職能建構、組織轉型、文化行為改變、國際認可。永續三層：制度、文化、技術。',
+    links: ['q1q5', 'intl']
+  },
+  {
+    id: 'intl', label: '國際複製', type: 'topic',
+    x: 320, y: 80, r: 26,
+    color: '#fb923c',
+    title: '國際影響與複製',
+    tags: ['#越南', '#菲律賓', '#OECD', '#UNESCO'],
+    content: '越南：120 萬公務員採用學習地圖。菲律賓：200 萬公務員認證制度。OECD：制定國際標準。巴拉圭：混成學習試行。UNESCO：AI 職能框架（2026）。',
+    links: ['data', 'q5']
+  },
+  {
+    id: 'partners', label: '合作夥伴', type: 'topic',
+    x: 340, y: -60, r: 24,
+    color: '#fb923c',
+    title: '合作夥伴',
+    tags: ['#Google', '#AWS', '#Microsoft', '#NVIDIA'],
+    content: '科技企業：Google、AWS、Microsoft、NVIDIA（長期合作，非一次性）。每年 25,000+ 員工赴合作夥伴設施參訪。',
+    links: ['data']
+  },
+  {
+    id: 'csdi', label: 'CSDI', type: 'org',
+    x: -60, y: -230, r: 30,
+    color: '#60a5fa',
+    title: '公務人力發展學院（CSDI）',
+    tags: ['#台灣', '#公部門', '#AI培訓'],
+    content: '台灣公務人力發展學院。在 AI 內閣 2.0 計畫下，負責全台 36 萬名公務員 AI 培訓。全球首個成功規模化的公部門 AI 人才發展生態系。',
+    links: ['q1q5', 'index']
+  },
+  {
+    id: 'champions', label: 'AI Champions', type: 'topic',
+    x: -180, y: 280, r: 20,
+    color: '#fbbf24',
+    title: 'AI Champions 制度',
+    tags: ['#種子人才', '#同儕學習', '#1200名'],
+    content: '1,200 名認證 AI Champions，每週主持跨機關「AI 諮詢時光」，每月觸及 15,000+ 公務員。形成自我維繫的知識倍增網絡。',
+    links: ['q1q5', 'q3']
+  },
+  // 原始檔案節點
+  {
+    id: 'pptx2026', label: '工作坊簡報 2026', type: 'file',
+    x: 200, y: 260, r: 18,
+    color: '#f97316',
+    title: '2026 ATD 工作坊簡報',
+    file: '../!2026-ATD-工作坊.pptx',
+    tags: ['#pptx', '#工作坊', '#2026'],
+    content: '2026 年 ATD 工作坊主簡報（PowerPoint 格式）。',
+    links: ['index']
+  },
+  {
+    id: 'pdf2026', label: '工作坊 PDF', type: 'file',
+    x: 300, y: 200, r: 16,
+    color: '#ef4444',
+    title: '2026 ATD 工作坊 PDF',
+    file: '../!2026-ATD-工作坊.pdf',
+    tags: ['#pdf', '#工作坊', '#2026'],
+    content: '2026 年 ATD 工作坊簡報的 PDF 輸出版本。',
+    links: ['index']
+  },
+  {
+    id: 'award2018', label: '2018 獎項申請', type: 'file',
+    x: 380, y: 140, r: 16,
+    color: '#ef4444',
+    title: 'ATD 2018 獎項申請（歷史參考）',
+    file: '../ATD_Innovation_in_Talent_Development_Award_Application_2018_(2)_-_JOHNLIAO.pdf',
+    tags: ['#pdf', '#2018', '#歷史版本'],
+    content: '2018 年的 ATD 獎項申請文件，供歷史比較參考。',
+    links: ['q1q5']
+  },
+];
+
+// 建立連結
+const edges = [];
+nodes.forEach(n => {
+  n.links.forEach(lid => {
+    if (n.id < lid) {
+      edges.push({ source: n.id, target: lid });
+    }
+  });
+});
+
+// 物理模擬
+let zoom = 1, panX = canvas.width/2, panY = canvas.height/2;
+let isDragging = false, lastMouse = null, dragNode = null;
+let showLabels = true;
+let animFrame;
+let selectedNode = null;
+
+function getNode(id) { return nodes.find(n => n.id === id); }
+
+// 力導向佈局
+function applyForces() {
+  const k = 0.01, repel = 8000, damp = 0.85;
+  nodes.forEach(n => { n.vx = n.vx || 0; n.vy = n.vy || 0; });
+
+  nodes.forEach((a, i) => {
+    nodes.forEach((b, j) => {
+      if (i >= j) return;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+      const f = repel / (dist * dist);
+      a.vx -= f * dx / dist;
+      a.vy -= f * dy / dist;
+      b.vx += f * dx / dist;
+      b.vy += f * dy / dist;
+    });
+  });
+
+  edges.forEach(e => {
+    const a = getNode(e.source), b = getNode(e.target);
+    if (!a || !b) return;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+    const ideal = 160;
+    const f = (dist - ideal) * k;
+    a.vx += f * dx / dist;
+    a.vy += f * dy / dist;
+    b.vx -= f * dx / dist;
+    b.vy -= f * dy / dist;
+  });
+
+  nodes.forEach(n => {
+    if (n === dragNode) return;
+    n.vx *= damp; n.vy *= damp;
+    n.x += n.vx; n.y += n.vy;
+  });
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.translate(panX, panY);
+  ctx.scale(zoom, zoom);
+
+  // 畫邊
+  edges.forEach(e => {
+    const a = getNode(e.source), b = getNode(e.target);
+    if (!a || !b) return;
+    const isActive = selectedNode && (selectedNode.id === a.id || selectedNode.id === b.id);
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.strokeStyle = isActive ? 'rgba(124,131,253,0.8)' : 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = isActive ? 2 : 1;
+    ctx.stroke();
+  });
+
+  // 畫節點
+  nodes.forEach(n => {
+    const isSelected = selectedNode && selectedNode.id === n.id;
+    const isConnected = selectedNode && selectedNode.links.includes(n.id);
+
+    // 光暈
+    if (isSelected) {
+      const grad = ctx.createRadialGradient(n.x, n.y, n.r, n.x, n.y, n.r * 2.5);
+      grad.addColorStop(0, n.color + '55');
+      grad.addColorStop(1, 'transparent');
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r * 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fillStyle = isSelected ? n.color : (isConnected ? n.color + 'cc' : n.color + '88');
+    ctx.fill();
+
+    if (isSelected || isConnected) {
+      ctx.strokeStyle = n.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    if (showLabels) {
+      ctx.font = `${Math.max(10, n.r * 0.5)}px Segoe UI`;
+      ctx.fillStyle = isSelected ? '#fff' : 'rgba(255,255,255,0.75)';
+      ctx.textAlign = 'center';
+      ctx.fillText(n.label, n.x, n.y + n.r + 14);
+    }
+  });
+
+  ctx.restore();
+  applyForces();
+  animFrame = requestAnimationFrame(draw);
+}
+
+// 互動事件
+function getMousePos(e) {
+  return { x: (e.clientX - panX) / zoom, y: (e.clientY - panY) / zoom };
+}
+function hitTest(mx, my) {
+  return nodes.find(n => Math.hypot(n.x - mx, n.y - my) < n.r + 8);
+}
+
+canvas.addEventListener('mousedown', e => {
+  const mp = getMousePos(e);
+  dragNode = hitTest(mp.x, mp.y);
+  mouseDownPos = { x: e.clientX, y: e.clientY };
+  if (!dragNode) { isDragging = false; lastMouse = { x: e.clientX, y: e.clientY }; }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (dragNode) {
+    const mp = getMousePos(e);
+    dragNode.x = mp.x; dragNode.y = mp.y;
+    dragNode.vx = 0; dragNode.vy = 0;
+  } else if (lastMouse) {
+    const dx = e.clientX - mouseDownPos.x, dy = e.clientY - mouseDownPos.y;
+    if (Math.sqrt(dx*dx + dy*dy) > 4) isDragging = true;
+    if (isDragging) {
+      panX += e.clientX - lastMouse.x;
+      panY += e.clientY - lastMouse.y;
+      lastMouse = { x: e.clientX, y: e.clientY };
+    }
+  }
+  const mp = getMousePos(e);
+  const hovered = hitTest(mp.x, mp.y);
+  const tt = document.getElementById('tooltip');
+  if (hovered) {
+    tt.style.display = 'block';
+    tt.style.left = e.clientX + 12 + 'px';
+    tt.style.top = e.clientY - 8 + 'px';
+    tt.textContent = hovered.title;
+    canvas.style.cursor = 'pointer';
+  } else {
+    tt.style.display = 'none';
+    canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (!isDragging) {
+    const mp = getMousePos(e);
+    const clicked = hitTest(mp.x, mp.y);
+    if (clicked) { selectedNode = clicked; openSidebar(clicked); }
+    else { selectedNode = null; closeSidebar(); }
+  }
+  isDragging = false; dragNode = null; lastMouse = null;
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.9 : 1.1;
+  zoom = Math.max(0.3, Math.min(3, zoom * factor));
+});
+
+// 計算反向連結（哪些節點連到這個節點）
+function getBacklinks(node) {
+  return nodes.filter(n => n.links && n.links.includes(node.id));
+}
+
+function openSidebar(node) {
+  document.getElementById('sb-title').textContent = node.title;
+  document.getElementById('sb-tags').innerHTML = node.tags.map(t => `<span class="tag">${t}</span>`).join('');
+  document.getElementById('sb-content').textContent = node.content;
+
+  // 正向連結
+  document.getElementById('sb-links').innerHTML = node.links.map(lid => {
+    const ln = getNode(lid);
+    return ln ? `<a onclick="selectNode('${lid}')">→ ${ln.label}</a>` : '';
+  }).join('') || '<span style="color:#444;font-size:12px">無</span>';
+
+  // 反向連結
+  const bl = getBacklinks(node);
+  document.getElementById('sb-backlinks').innerHTML = bl.length
+    ? bl.map(n => `<a onclick="selectNode('${n.id}')">← ${n.label}</a>`).join('')
+    : '<span style="color:#444;font-size:12px">無</span>';
+
+  // 開啟檔案按鈕
+  const btn = document.getElementById('open-file-btn');
+  if (node.file) {
+    btn.style.display = 'block';
+    btn.setAttribute('data-file', node.file);
+    // 根據副檔名顯示不同圖示
+    const ext = node.file.split('.').pop().toLowerCase();
+    const icons = { md: '📝', docx: '📄', pptx: '📊', pdf: '📕' };
+    btn.textContent = (icons[ext] || '📄') + ' 開啟 ' + node.file;
+  } else {
+    btn.style.display = 'none';
+  }
+
+  document.getElementById('sidebar').classList.add('open');
+}
+
+function openFile() {
+  const btn = document.getElementById('open-file-btn');
+  const file = btn.getAttribute('data-file');
+  if (!file) return;
+
+  const base = window.location.origin + window.location.pathname.replace('graph-view.html', '');
+  let url = file.startsWith('../')
+    ? window.location.origin + '/knowledge-base/' + file
+    : base + file;
+
+  const ext = file.split('.').pop().toLowerCase();
+
+  if (ext === 'md') {
+    // md 檔案：fetch 後在側邊渲染
+    fetch(url)
+      .then(r => r.text())
+      .then(text => {
+        document.getElementById('md-content').innerHTML = marked.parse(text);
+        document.getElementById('md-viewer').classList.add('open');
+      })
+      .catch(() => alert('無法載入檔案：' + file));
+  } else {
+    // 其他檔案（pptx, pdf）：直接開新分頁下載
+    window.open(url, '_blank');
+  }
+}
+
+function closeMd() {
+  document.getElementById('md-viewer').classList.remove('open');
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  selectedNode = null;
+}
+
+function selectNode(id) {
+  const n = getNode(id);
+  if (n) { selectedNode = n; openSidebar(n); }
+}
+
+function resetZoom() { zoom = 1; panX = canvas.width/2; panY = canvas.height/2; }
+function toggleLabels() { showLabels = !showLabels; }
+
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  panX = canvas.width/2; panY = canvas.height/2;
+});
+
+draw();
+</script>
+</body>
+</html>
