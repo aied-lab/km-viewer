@@ -41,6 +41,25 @@ if [ ! -f "graph-data.json" ]; then
     echo ""
 fi
 
+# 選擇存取模式
+echo ""
+echo "選擇啟動模式："
+echo "  1) 僅本機存取（預設，安全）"
+echo "  2) 開放內網存取（同 WiFi 的手機/電腦也能連）"
+echo ""
+read -p "請選擇 (1/2): " MODE
+
+HOST="127.0.0.1"
+if [ "$MODE" = "2" ]; then
+    HOST="0.0.0.0"
+    # 顯示本機 IP
+    LOCAL_IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)
+    echo ""
+    echo "📱 其他裝置請開啟："
+    echo "   http://${LOCAL_IP}:8765/graph-view.html"
+    echo ""
+fi
+
 echo ""
 echo "🚀 啟動 KM Viewer..."
 echo "   瀏覽器將自動開啟"
@@ -50,4 +69,4 @@ echo ""
 # 延遲 1 秒後自動開啟瀏覽器
 (sleep 1 && open "http://localhost:8765/graph-view.html") &
 
-python3 km-server.py
+python3 km-server.py --host "$HOST"

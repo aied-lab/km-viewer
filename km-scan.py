@@ -232,8 +232,20 @@ def main():
     project_name = Path(args.directory).resolve().name
     project_dir = output_dir / 'wiki' / project_name
     project_dir.mkdir(parents=True, exist_ok=True)
-    with open(project_dir / 'graph-data.json', 'w', encoding='utf-8') as f:
-        json.dump(graph_data, f, ensure_ascii=False, indent=2)
+    project_graph = project_dir / 'graph-data.json'
+    # 如果已有 wiki 版（hasWiki=True），不覆蓋
+    skip_write = False
+    if project_graph.exists():
+        try:
+            existing = json.load(open(project_graph, encoding='utf-8'))
+            if existing.get('meta', {}).get('hasWiki'):
+                skip_write = True
+                print(f'   ⏭️  已有 Wiki 版 graph-data.json，不覆蓋')
+        except Exception:
+            pass
+    if not skip_write:
+        with open(project_graph, 'w', encoding='utf-8') as f:
+            json.dump(graph_data, f, ensure_ascii=False, indent=2)
 
     # 根目錄的 graph-data.json 由 switch_project 負責，這裡不寫
 

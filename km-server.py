@@ -42,6 +42,8 @@ class KMHandler(SimpleHTTPRequestHandler):
             self.handle_list_projects()
         elif parsed.path == '/api/browse':
             self.handle_browse(parsed)
+        elif parsed.path == '/api/download':
+            self.handle_download(parsed)
         else:
             super().do_GET()
 
@@ -169,6 +171,43 @@ class KMHandler(SimpleHTTPRequestHandler):
             self.send_json(403, {'error': '沒有存取權限'})
         except Exception as e:
             self.send_json(500, {'error': str(e)})
+
+    def handle_download(self, parsed):
+        """下載檔案（串流傳輸）"""
+        params = parse_qs(parsed.query)
+        file_path = params.get('path', [None])[0]
+        if not file_path or not os.path.isfile(file_path):
+            self.send_json(404, {'error': '檔案不存在'})
+            return
+        try:
+            import mimetypes
+            import urllib.parse
+            filename = os.path.basename(file_path)
+            # 中文檔名 URL 編碼
+            encoded_name = urllib.parse.quote(filename)
+            mime, _ = mimetypes.guess_type(file_path)
+            if not mime:
+                mime = 'application/octet-stream'
+            file_size = os.path.getsize(file_path)
+            self.send_response(200)
+            self.send_header('Content-Type', mime)
+            self.send_header('Content-Disposition', f"attachment; filename*=UTF-8''{encoded_name}")
+            self.send_header('Content-Length', file_size)
+            self.end_headers()
+            # 串流寫入，避免大檔案佔滿記憶體
+            with open(file_path, 'rb') as f:
+                while True:
+                    chunk = f.read(65536)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # 用戶取消下載
+        except Exception as e:
+            try:
+                self.send_json(500, {'error': str(e)})
+            except Exception:
+                pass
 
     def handle_list_projects(self):
         """列出所有已掃描的專案"""
@@ -422,7 +461,7 @@ def query_ollama(question: str, wiki_content: str, model: str) -> str:
         method='POST',
     )
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=300) as resp:
             data = json.loads(resp.read())
             return data.get('message', {}).get('content', '（無回應）')
     except Exception as e:
@@ -456,7 +495,7 @@ def query_gemini(question: str, wiki_content: str, provider: str = 'gemini-flash
         method='POST',
     )
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=300) as resp:
             data = json.loads(resp.read())
             return data['candidates'][0]['content']['parts'][0]['text']
     except Exception as e:

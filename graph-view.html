@@ -333,6 +333,26 @@
   #timeline-bar label { font-size: 12px; color: var(--text-dim); }
   #timeline-bar .range-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-top: 4px; }
   #timeline-range { width: 100%; accent-color: var(--accent); }
+
+  /* ====== 手機適配 ====== */
+  @media (max-width: 768px) {
+    #left-panel { display: none; }
+    #spacing-bar { left: 0; }
+    #toolbar { gap: 6px; padding: 0 8px; overflow-x: auto; }
+    #toolbar .logo { font-size: 13px; }
+    #toolbar .info { display: none; }
+    #toolbar .separator { display: none; }
+    #search-box { width: 120px; font-size: 12px; }
+    .dim-btn { padding: 5px 8px; font-size: 11px; }
+    #sidebar { width: 100vw; }
+    #sidebar.open { width: 100vw; }
+    #chat-panel { width: 100vw !important; left: 0; right: 0; }
+    #chat-panel.dock-right { width: 100vw !important; top: 52px; }
+    #chat-header select { font-size: 14px; min-width: 140px; padding: 6px 10px; }
+    #chat-input { font-size: 16px; }
+    #controls { bottom: 8px; right: 8px; }
+    #controls button { padding: 6px 10px; font-size: 11px; }
+  }
 </style>
 </head>
 <body>
@@ -595,15 +615,23 @@ function buildVisualization() {
   if (!graphData) return;
   let nodes = graphData.nodes, edges = graphData.edges;
 
-  // 隱藏無內容的節點（圖片等）
+  // 隱藏無內容的節點
+  const hasWiki = graphData.meta.hasWiki;
   if (hideNoContent) {
-    const keepIds = new Set();
-    nodes.forEach(n => {
-      if (n.type === 'folder') keepIds.add(n.id);
-      else if (n.summary && !n.summary.startsWith('（') && !n.summary.endsWith('檔案。')) keepIds.add(n.id);
-    });
-    nodes = nodes.filter(n => keepIds.has(n.id));
-    edges = edges.filter(e => keepIds.has(e.source) && keepIds.has(e.target));
+    if (hasWiki) {
+      // Wiki 模式：只保留有摘要的檔案，排除資料夾和無內容檔案
+      const keepIds = new Set();
+      nodes.forEach(n => {
+        if (n.type !== 'folder' && n.summary && !n.summary.startsWith('（') && !n.summary.endsWith('檔案。')) {
+          keepIds.add(n.id);
+        }
+      });
+      if (keepIds.size > 0) {
+        nodes = nodes.filter(n => keepIds.has(n.id));
+        edges = edges.filter(e => keepIds.has(e.source) && keepIds.has(e.target));
+      }
+    }
+    // 非 wiki 模式：不過濾，顯示全部
   }
 
   if (timelineFilter) {
@@ -1014,11 +1042,14 @@ function openSidebar(node) {
   if(node.type==='file'){
     btn.style.display='block';
     btn.setAttribute('data-path',node.path);btn.setAttribute('data-ext',node.ext||'');btn.setAttribute('data-wiki',node.wikiFile||'');
+    const isRemote = location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
+    const openLabel = isRemote ? '⬇ 下載原始檔案' : '📄 開啟原始檔案';
     if(node.wikiFile&&node.summary&&!node.summary.startsWith('（')){
       btn.textContent='📝 閱讀 Wiki 筆記';
       srcBtn.style.display='block'; srcBtn.setAttribute('data-path',node.path);
+      srcBtn.textContent = isRemote ? '⬇ 下載原始檔案' : '📂 開啟原始檔案';
     } else {
-      btn.textContent=(node.ext==='.md'?'📝 閱讀內容':'📄 開啟原始檔案');
+      btn.textContent=(node.ext==='.md'?'📝 閱讀內容':openLabel);
       srcBtn.style.display='none';
     }
   } else { btn.style.display='none'; srcBtn.style.display='none'; }
@@ -1063,6 +1094,12 @@ function openSource() {
 }
 
 function openFilePath(path) {
+  const isRemote = location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
+  if (isRemote) {
+    // 遠端：下載檔案
+    location.href = '/api/download?path=' + encodeURIComponent(path);
+    return;
+  }
   fetch('/api/open?path='+encodeURIComponent(path))
   .then(r=>r.json()).then(d=>{if(d.error)alert('無法開啟：'+d.error);})
   .catch(err=>alert('連線失敗：'+err.message));
