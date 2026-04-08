@@ -1,4 +1,0 @@
-python-docx
-pymupdf
-python-pptx
-anthropic

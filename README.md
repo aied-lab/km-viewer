@@ -1,65 +1,78 @@
-# Knowledge Graph — 本地知識管理系統
+# KM Viewer — 本地知識圖譜工具
 
-本地端知識圖譜工具，適用於公部門、醫療、企業等需要資安合規的環境。
+掃描任意資料夾，自動產生互動式知識圖譜。
 資料完全不離開本機，不需要雲端服務。
 
-## 功能
+## 快速開始
 
-- 自動掃描資料夾，建立知識庫 .md 檔案
-- 自動計算雙向連結（正向 + 反向）
-- 互動式知識圖譜視覺化
-- 點擊節點直接閱讀 Markdown 內容
-- 支援開啟原始檔案（.docx、.pdf、.pptx）
-
-## 使用方式
-
-### 1. 建立反向連結
+### 1. 掃描目錄
 
 ```bash
-python3 build_backlinks.py
+python3 km-scan.py /path/to/your/folder
 ```
 
-掃描 knowledge-base/ 資料夾裡所有 .md 檔案，自動更新反向連結。
+會在當前目錄產生 `graph-data.json`。
 
 ### 2. 啟動本地伺服器
 
 ```bash
-cd 你的資料夾 && python3 -m http.server 8765
+python3 -m http.server 8765
 ```
 
 ### 3. 開啟知識圖譜
 
-在瀏覽器開啟：
+瀏覽器開啟 `http://localhost:8765/graph-view.html`
 
-```
-http://localhost:8765/knowledge-base/graph-view.html
+## 功能
+
+- **三種維度切換**：檔案類型 / 資料夾結構 / 時間軸
+- **即時搜尋**：輸入檔名快速定位
+- **圖例篩選**：點擊圖例只顯示特定分類
+- **時間滑桿**：拖曳篩選特定時間範圍的檔案
+- **點擊開檔**：節點點擊後可開啟原始檔案
+- **拖拉縮放**：滑鼠拖拉平移、滾輪縮放
+
+## 支援的檔案類型
+
+| 分類 | 副檔名 |
+|------|--------|
+| 文件 | .pdf .doc .docx .txt .rtf .odt .md |
+| 簡報 | .ppt .pptx .key .odp |
+| 試算表 | .xls .xlsx .csv .ods .numbers |
+| 圖片 | .jpg .jpeg .png .gif .svg .bmp .webp |
+| 影音 | .mp4 .mov .avi .mkv .mp3 .wav .flac |
+| 程式碼 | .py .js .ts .html .css .json .yaml 等 |
+| 壓縮檔 | .zip .rar .7z .tar .gz |
+
+## 進階用法
+
+```bash
+# 指定輸出目錄
+python3 km-scan.py /path/to/folder -o /path/to/output
+
+# 掃描後把 graph-view.html 複製到輸出目錄一起使用
+cp graph-view.html /path/to/output/
 ```
 
 ## 檔案結構
 
 ```
-knowledge-graph/
-├── build_backlinks.py    # 自動計算反向連結
-├── graph-view.html       # 知識圖譜視覺化介面
-├── README.md
-└── knowledge-base/       # 放你的 .md 知識庫
-    ├── 00-INDEX.md
-    ├── 01-xxx.md
-    └── ...
+km-viewer/
+├── km-scan.py          # CLI 掃描工具
+├── graph-view.html     # 知識圖譜視覺化介面
+├── graph-data.json     # 掃描產生的資料（自動產生）
+└── README.md
 ```
 
 ## 開發路線
 
-- [ ] build.py — 自動從 .docx/.pdf/.pptx 產生 .md（整合 Claude API）
-- [ ] 關鍵字搜尋功能
-- [ ] 語意搜尋（整合 Gemma 4 本地 LLM）
-- [ ] standalone 模式（不需要 server，雙擊 HTML 即用）
+- [ ] LLM 解析檔案內容（Claude API），產生摘要與語意連結
+- [ ] 關鍵字搜尋
+- [ ] 語意搜尋（本地 LLM）
 - [ ] macOS App 打包
 
 ## 技術架構
 
 - **前端**：純 HTML/CSS/JavaScript（無框架依賴）
-- **Markdown 渲染**：marked.js
-- **知識圖譜**：Canvas + 力導向佈局
-- **後端**：Python（僅開發階段需要）
-- **LLM**：Claude API（雲端）/ Gemma 4（本地，開發中）
+- **後端**：Python CLI（僅掃描階段需要）
+- **圖譜引擎**：Canvas + 力導向佈局

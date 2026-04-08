@@ -3,534 +3,1478 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ATD-IIIEDU 知識圖譜</title>
+<title>KM Viewer — 知識圖譜</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 <style>
+  :root {
+    --bg-main: #1a1a2e; --bg-panel: #16213e; --bg-input: #0d1117; --bg-card: #0d1117;
+    --border: #0f3460; --text: #e0e0e0; --text-dim: #888; --text-muted: #555;
+    --accent: #7c83fd; --accent2: #a78bfa; --accent-hover: #6b72e8;
+    --node-label: rgba(255,255,255,0.55); --edge-default: rgba(255,255,255,0.1);
+    --canvas-bg: #1a1a2e;
+  }
+  [data-theme="light"] {
+    --bg-main: #f5f5f7; --bg-panel: #ffffff; --bg-input: #f0f0f3; --bg-card: #f8f8fa;
+    --border: #d0d0d8; --text: #1a1a2e; --text-dim: #666; --text-muted: #999;
+    --accent: #5b63e0; --accent2: #7c6bc4; --accent-hover: #4a52d0;
+    --node-label: rgba(0,0,0,0.6); --edge-default: rgba(0,0,0,0.12);
+    --canvas-bg: #f5f5f7;
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
-
+  body { background: var(--bg-main); color: var(--text); font-family: 'Segoe UI', -apple-system, sans-serif; overflow: hidden; }
   #canvas { width: 100vw; height: 100vh; cursor: grab; }
   #canvas:active { cursor: grabbing; }
 
+  /* ====== 頂部工具列 ====== */
+  #toolbar {
+    position: fixed; top: 0; left: 0; right: 0; height: 52px;
+    background: var(--bg-panel); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 20px; gap: 14px; z-index: 20;
+  }
+  #toolbar .logo { color: var(--accent); font-weight: bold; font-size: 16px; margin-right: 4px; }
+  #toolbar .separator { width: 1px; height: 28px; background: var(--border); }
+  #toolbar .info { font-size: 13px; color: var(--text-dim); }
+  #toolbar .info span { color: var(--text); font-weight: 500; }
+  .dimension-group { display: flex; gap: 4px; margin-left: auto; }
+  .dim-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s;
+  }
+  .dim-btn:hover { border-color: var(--accent); color: var(--text); }
+  .dim-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #search-box {
+    background: var(--bg-input); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 14px; border-radius: 6px; font-size: 13px; width: 220px; outline: none;
+  }
+  #search-box:focus { border-color: var(--accent); }
+  #search-box::placeholder { color: var(--text-muted); }
+
+  /* ====== 左側控制面板 ====== */
+  #left-panel {
+    position: fixed; left: 0; top: 52px; width: 180px; height: calc(100vh - 52px);
+    background: var(--bg-panel); border-right: 1px solid var(--border);
+    padding: 16px; overflow-y: auto; z-index: 15; font-size: 12px;
+  }
+  /* 面板拖曳把手 */
+  .panel-resize {
+    position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; z-index: 16;
+  }
+  .panel-resize:hover, .panel-resize.dragging { background: var(--accent); opacity: 0.3; }
+  #left-resize { right: -3px; }
+  #right-resize { left: -3px; }
+  #left-panel h4 { color: var(--accent); margin-bottom: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  #left-panel .ctrl-group { margin-bottom: 18px; }
+  #left-panel .ctrl-label { color: var(--text-dim); font-size: 11px; margin-bottom: 6px; display: flex; justify-content: space-between; }
+  #left-panel .slider-wrap { display: flex; flex-direction: column; align-items: center; }
+  #left-panel input[type=range] { accent-color: var(--accent); writing-mode: vertical-lr; direction: rtl; height: 80px; width: 20px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; }
+  .legend-item:hover .name { color: var(--text); }
+  .legend-item .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .legend-item .name { color: var(--text-dim); font-size: 12px; }
+  .legend-item .count { color: var(--text-muted); margin-left: auto; font-size: 11px; }
+  .legend-item.dimmed .dot { opacity: 0.25; }
+  .legend-item.dimmed .name { color: var(--text-muted); }
+  .kw-item {
+    padding: 5px 8px; cursor: pointer; font-size: 12px; color: var(--text-dim);
+    border-radius: 4px; margin: 1px 0; display: flex; justify-content: space-between; align-items: center;
+  }
+  .kw-item:hover { background: var(--bg-input); color: var(--text); }
+  .kw-item.active { background: var(--accent); color: #fff; }
+  .kw-item .kw-count { font-size: 11px; color: var(--text-muted); }
+
+  /* ====== 頂部間距控制條 ====== */
+  #spacing-bar {
+    position: fixed; top: 52px; left: 180px; right: 0;
+    height: 36px; background: var(--bg-panel); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 16px; gap: 10px; z-index: 14;
+    font-size: 12px; color: var(--text-dim);
+  }
+  #spacing-bar input[type=range] { width: 200px; accent-color: var(--accent); }
+  #spacing-bar .spacer { flex: 1; }
+
+  /* ====== 右側面板 ====== */
   #sidebar {
-    position: fixed; right: 0; top: 0; width: 320px; height: 100vh;
-    background: #16213e; border-left: 1px solid #0f3460;
-    padding: 20px; overflow-y: auto;
-    transform: translateX(100%); transition: transform 0.3s ease;
-    z-index: 10;
+    position: fixed; right: 0; top: 52px; width: 380px; height: calc(100vh - 52px);
+    background: var(--bg-panel); border-left: 1px solid var(--border);
+    padding: 24px; overflow-y: auto;
+    transform: translateX(100%); transition: transform 0.3s ease; z-index: 15;
   }
   #sidebar.open { transform: translateX(0); }
-  #sidebar h2 { color: #7c83fd; font-size: 16px; margin-bottom: 8px; }
-  #sidebar .tag { display: inline-block; background: #0f3460; color: #7c83fd; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin: 2px; }
-  #sidebar .links a { display: block; color: #a78bfa; font-size: 13px; padding: 4px 0; text-decoration: none; cursor: pointer; }
-  #sidebar .links a:hover { color: #fff; }
-  #sidebar .content { font-size: 13px; color: #aaa; line-height: 1.7; margin-top: 10px; }
-  #sidebar .close-btn { position: absolute; top: 12px; right: 12px; cursor: pointer; color: #666; font-size: 18px; }
+  #sidebar .close-btn { position: absolute; top: 14px; right: 14px; cursor: pointer; color: var(--text-dim); font-size: 20px; background: none; border: none; }
   #sidebar .close-btn:hover { color: #fff; }
-  #open-file-btn {
-    display: none; margin-top: 14px; width: 100%;
-    background: #0f3460; border: 1px solid #7c83fd; color: #7c83fd;
-    padding: 8px 0; border-radius: 8px; cursor: pointer; font-size: 13px;
-    transition: all 0.2s;
+  #sidebar h2 { color: var(--accent); font-size: 16px; margin-bottom: 8px; padding-right: 28px; word-break: break-all; line-height: 1.4; }
+  #sidebar .file-meta { font-size: 13px; color: var(--text-dim); margin-bottom: 12px; line-height: 2; }
+  #sidebar .file-meta span { color: var(--text-dim); }
+  #sidebar .tag { display: inline-block; background: var(--border); color: var(--accent); padding: 3px 10px; border-radius: 12px; font-size: 12px; margin: 2px; }
+  .section-title { font-size: 12px; color: var(--text-muted); margin-top: 16px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+  #sb-summary { font-size: 14px; color: var(--text); line-height: 1.8; margin-top: 8px; }
+  #sb-keywords { margin-top: 8px; }
+  #sb-keywords .kw { display: inline-block; background: var(--bg-input); color: var(--text-dim); padding: 3px 10px; border-radius: 4px; font-size: 12px; margin: 2px; border: 1px solid var(--border); }
+  #sidebar .child-list a {
+    display: block; color: #a78bfa; font-size: 13px; padding: 4px 0;
+    text-decoration: none; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  #open-file-btn:hover { background: #7c83fd; color: #fff; }
-  .section-title { font-size: 11px; color: #555; margin-top: 14px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+  #sidebar .child-list a:hover { color: #fff; }
+  .action-btn {
+    margin-top: 12px; width: 100%;
+    background: var(--border); border: 1px solid var(--accent); color: var(--accent);
+    padding: 10px 0; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.2s;
+  }
+  .action-btn:hover { background: var(--accent); color: #fff; }
+
+  /* ====== MD 閱讀面板 ====== */
   #md-viewer {
-    display: none; position: fixed; top: 0; left: 0; right: 320px; bottom: 0;
-    background: #0d1117; overflow-y: auto; padding: 40px 60px;
-    z-index: 5; border-right: 1px solid #0f3460;
+    display: none; position: fixed; top: 52px; left: 0; right: 380px; bottom: 0;
+    background: var(--bg-card); overflow-y: auto; padding: 40px 60px; z-index: 12;
   }
   #md-viewer.open { display: block; }
-  #md-viewer .close-md { position: fixed; top: 16px; left: 16px; cursor: pointer;
-    background: #16213e; border: 1px solid #0f3460; color: #7c83fd;
-    padding: 6px 12px; border-radius: 6px; font-size: 12px; z-index: 6; }
-  #md-viewer .close-md:hover { background: #7c83fd; color: #fff; }
-  #md-content { max-width: 760px; margin: 0 auto; margin-top: 20px;
-    font-size: 14px; line-height: 1.8; color: #cdd9e5; }
-  #md-content h1 { color: #7c83fd; font-size: 22px; margin-bottom: 16px; border-bottom: 1px solid #0f3460; padding-bottom: 8px; }
-  #md-content h2 { color: #a78bfa; font-size: 17px; margin-top: 24px; margin-bottom: 10px; }
-  #md-content h3 { color: #60a5fa; font-size: 14px; margin-top: 16px; }
+  #md-viewer .close-md {
+    position: fixed; top: 64px; left: 16px; cursor: pointer;
+    background: var(--bg-panel); border: 1px solid var(--border); color: var(--accent);
+    padding: 8px 14px; border-radius: 6px; font-size: 13px; z-index: 13;
+  }
+  #md-viewer .close-md:hover { background: var(--accent); color: #fff; }
+  #md-content {
+    max-width: 760px; margin: 0 auto; margin-top: 20px;
+    font-size: 15px; line-height: 1.8; color: var(--text);
+  }
+  #md-content h1 { color: var(--accent); font-size: 24px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  #md-content h2 { color: #a78bfa; font-size: 18px; margin-top: 24px; margin-bottom: 10px; }
+  #md-content h3 { color: #60a5fa; font-size: 15px; margin-top: 16px; }
   #md-content table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-  #md-content th { background: #0f3460; color: #7c83fd; padding: 8px 12px; text-align: left; font-size: 12px; }
-  #md-content td { padding: 7px 12px; border-bottom: 1px solid #1a2744; font-size: 13px; }
+  #md-content th { background: var(--border); color: var(--accent); padding: 8px 12px; text-align: left; font-size: 13px; }
+  #md-content td { padding: 7px 12px; border-bottom: 1px solid #1a2744; font-size: 14px; }
   #md-content tr:hover td { background: #111827; }
-  #md-content code { background: #1e2a3a; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #34d399; }
-  #md-content blockquote { border-left: 3px solid #7c83fd; padding-left: 16px; color: #888; margin: 12px 0; }
+  #md-content code { background: #1e2a3a; padding: 2px 6px; border-radius: 4px; font-size: 13px; color: #34d399; }
+  #md-content pre { background: #1e2a3a; padding: 14px; border-radius: 6px; overflow-x: auto; margin: 12px 0; }
+  #md-content pre code { padding: 0; }
+  #md-content blockquote { border-left: 3px solid #7c83fd; padding-left: 16px; color: var(--text-dim); margin: 12px 0; }
   #md-content strong { color: #f0f0f0; }
-  #md-content a { color: #7c83fd; text-decoration: none; }
+  #md-content a { color: var(--accent); text-decoration: none; }
   #md-content hr { border: none; border-top: 1px solid #1a2744; margin: 20px 0; }
+  #md-content ul, #md-content ol { padding-left: 24px; margin: 8px 0; }
+  #md-content li { margin: 4px 0; }
 
+  /* ====== 查詢面板（可停靠底部/右側，可調整大小） ====== */
+  #chat-panel {
+    position: fixed; display: none; flex-direction: column;
+    background: var(--bg-panel); border-top: 1px solid var(--border); z-index: 25;
+    /* 預設：底部停靠 */
+    left: 0; right: 0; bottom: 0; height: 320px;
+  }
+  #chat-panel.open { display: flex; }
+  #chat-panel.dock-right {
+    top: 52px; left: auto; right: 0; bottom: 0;
+    width: 480px; height: auto;
+    border-top: none; border-left: 1px solid var(--border);
+  }
+  /* 拖曳調整大小的把手 */
+  #chat-resize {
+    position: absolute; background: transparent; z-index: 26;
+  }
+  #chat-panel:not(.dock-right) #chat-resize {
+    top: -4px; left: 0; right: 0; height: 8px; cursor: ns-resize;
+  }
+  #chat-panel.dock-right #chat-resize {
+    top: 0; bottom: 0; left: -4px; width: 8px; cursor: ew-resize;
+  }
+  #chat-resize:hover, #chat-resize.dragging { background: #7c83fd44; }
+  #chat-header {
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    font-size: 14px; color: var(--accent); font-weight: bold;
+  }
+  #chat-header .chat-title { flex-shrink: 0; }
+  #chat-header .chat-controls { display: flex; gap: 6px; margin-left: auto; align-items: center; }
+  #chat-header select {
+    background: var(--bg-card); border: 1px solid var(--border); color: var(--text-dim);
+    padding: 4px 8px; border-radius: 4px; font-size: 12px; outline: none; cursor: pointer;
+  }
+  #chat-header select:focus { border-color: var(--accent); }
+  .chat-ctrl-btn {
+    background: none; border: 1px solid transparent; color: var(--text-muted); cursor: pointer;
+    font-size: 15px; padding: 2px 6px; border-radius: 4px;
+  }
+  .chat-ctrl-btn:hover { color: var(--text); border-color: var(--border); }
+  .chat-ctrl-btn.active { color: var(--accent); }
+  #chat-messages {
+    flex: 1; overflow-y: auto; padding: 16px 20px;
+    font-size: 14px; line-height: 1.8; color: var(--text);
+  }
+  #chat-messages .msg-user { color: var(--accent); margin-bottom: 8px; font-weight: 500; }
+  #chat-messages .msg-user::before { content: '🙋 '; }
+  #chat-messages .msg-bot {
+    color: var(--text); margin-bottom: 16px; padding: 14px 18px;
+    background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px; font-size: 14px; line-height: 1.8;
+  }
+  #chat-messages .msg-bot p { margin: 6px 0; }
+  #chat-messages .msg-bot ul, #chat-messages .msg-bot ol { padding-left: 22px; margin: 6px 0; }
+  #chat-messages .msg-bot li { margin: 3px 0; }
+  #chat-messages .msg-bot strong { color: var(--text); font-weight: 700; }
+  #chat-messages .msg-bot a { color: var(--accent); cursor: pointer; text-decoration: underline; }
+  #chat-messages .msg-bot code { background: var(--border); padding: 2px 6px; border-radius: 4px; font-size: 13px; color: var(--accent); }
+  #chat-messages .msg-loading { color: var(--text-dim); padding: 10px 0; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  #chat-messages .msg-loading .dot-pulse { display: inline-flex; gap: 4px; }
+  #chat-messages .msg-loading .dot-pulse span {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+    animation: dotPulse 1.2s infinite ease-in-out;
+  }
+  #chat-messages .msg-loading .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
+  #chat-messages .msg-loading .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dotPulse { 0%,80%,100% { opacity: 0.2; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.2); } }
+  #chat-messages .msg-model { font-size: 11px; color: #444; margin-top: -12px; margin-bottom: 12px; }
+  #chat-input-area {
+    padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-shrink: 0;
+  }
+  #chat-input {
+    flex: 1; background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 14px; border-radius: 8px; font-size: 14px; outline: none;
+  }
+  #chat-input:focus { border-color: var(--accent); }
+  #chat-send-btn {
+    background: var(--accent); border: none; color: #fff; padding: 10px 20px;
+    border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;
+  }
+  #chat-send-btn:hover { background: #6b72e8; }
+  #chat-send-btn:disabled { background: #333; color: var(--text-dim); cursor: not-allowed; }
+
+  /* ====== 設定面板（選擇目錄） ====== */
+  #settings-panel {
+    position: fixed; top: 52px; left: 0; right: 0; bottom: 0;
+    background: var(--bg-main); display: none; align-items: center; justify-content: center;
+    z-index: 50; backdrop-filter: blur(4px);
+  }
+  #settings-panel.open { display: flex; }
+  .settings-card {
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 32px 40px; width: 500px; max-width: 90vw;
+  }
+  .settings-card h2 { color: var(--accent); font-size: 18px; margin-bottom: 20px; }
+  .settings-card .field { margin-bottom: 16px; }
+  .settings-card label { font-size: 13px; color: var(--text-dim); display: block; margin-bottom: 6px; }
+  .settings-card input[type=text] {
+    width: 100%; background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 14px; border-radius: 8px; font-size: 14px; outline: none;
+  }
+  .settings-card input[type=text]:focus { border-color: var(--accent); }
+  .settings-card .btn-row { display: flex; gap: 10px; margin-top: 20px; }
+  .settings-card .btn-primary {
+    flex: 1; background: var(--accent); border: none; color: #fff;
+    padding: 12px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;
+  }
+  .settings-card .btn-primary:hover { background: #6b72e8; }
+  .settings-card .btn-secondary {
+    flex: 1; background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    padding: 12px; border-radius: 8px; cursor: pointer; font-size: 14px;
+  }
+  .settings-card .btn-secondary:hover { border-color: var(--accent); color: var(--text); }
+  .settings-card .dir-list { margin-top: 12px; }
+  .browser-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; cursor: pointer; font-size: 13px; color: var(--text);
+    border-bottom: 1px solid var(--border); transition: background 0.1s;
+  }
+  .browser-item:last-child { border-bottom: none; }
+  .browser-item:hover { background: var(--bg-input); }
+  .browser-item.selected { background: var(--accent); color: #fff; }
+  .browser-item .icon { font-size: 16px; flex-shrink: 0; }
+  .browser-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .browser-item .meta { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+  .browser-up { color: var(--accent); font-weight: 500; }
+  .settings-card .dir-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; margin: 6px 0; background: var(--bg-card); border-radius: 8px;
+    cursor: pointer; transition: all 0.2s; border: 1px solid transparent;
+  }
+  .settings-card .dir-item:hover { border-color: var(--accent); }
+  .settings-card .dir-item.active { border-color: var(--accent); background: var(--border); }
+  .settings-card .dir-item .dir-name { color: var(--text); font-size: 14px; }
+  .settings-card .dir-item .dir-meta { color: var(--text-muted); font-size: 12px; }
+
+  /* ====== Tooltip ====== */
+  .tooltip {
+    position: fixed; background: var(--bg-panel); border: 1px solid var(--border);
+    padding: 8px 12px; border-radius: 8px; font-size: 13px; color: var(--text);
+    pointer-events: none; z-index: 30; display: none; max-width: 360px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    backdrop-filter: blur(4px);
+  }
+
+  /* ====== 控制按鈕 ====== */
   #controls {
-    position: fixed; left: 20px; bottom: 20px;
-    display: flex; gap: 8px; z-index: 10;
+    position: fixed; right: 16px; bottom: 16px;
+    display: flex; gap: 6px; z-index: 15;
   }
   #controls button {
-    background: #16213e; border: 1px solid #0f3460; color: #7c83fd;
+    background: var(--bg-panel); border: 1px solid var(--border); color: var(--accent);
     padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px;
-    transition: all 0.2s;
+    transition: all 0.2s; backdrop-filter: blur(4px);
   }
-  #controls button:hover { background: #0f3460; color: #fff; }
+  #controls button:hover { background: var(--accent); color: #fff; }
 
-  #title {
-    position: fixed; left: 20px; top: 20px;
-    font-size: 13px; color: #555; z-index: 10;
+  /* ====== 載入 ====== */
+  #loading {
+    position: fixed; inset: 0; background: var(--bg-main);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px; z-index: 100;
   }
-  #title span { color: #7c83fd; font-weight: bold; }
+  #loading .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  #loading .msg { color: var(--text-dim); font-size: 14px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading.hidden { display: none; }
 
-  .tooltip {
-    position: fixed; background: #16213e; border: 1px solid #0f3460;
-    padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #ccc;
-    pointer-events: none; z-index: 20; display: none;
+  /* ====== 時間軸 ====== */
+  #timeline-bar {
+    position: fixed; bottom: 60px; left: 200px; right: 200px;
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 24px; z-index: 15; display: none; backdrop-filter: blur(4px);
   }
+  #timeline-bar.visible { display: block; }
+  #timeline-bar label { font-size: 12px; color: var(--text-dim); }
+  #timeline-bar .range-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  #timeline-range { width: 100%; accent-color: var(--accent); }
 </style>
 </head>
 <body>
 
-<div id="title">ATD-IIIEDU / <span>知識圖譜</span></div>
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="msg">載入知識圖譜資料...</div>
+</div>
+
+<div id="toolbar">
+  <span class="logo">KM Viewer</span>
+  <div class="separator"></div>
+  <span class="info" id="info-text">載入中...</span>
+  <input type="text" id="search-box" placeholder="搜尋檔案名稱...">
+  <div class="separator"></div>
+  <div class="dimension-group">
+    <button class="dim-btn active" data-dim="category" onclick="switchDimension('category')">檔案類型</button>
+    <button class="dim-btn" data-dim="folder" onclick="switchDimension('folder')">資料夾</button>
+    <button class="dim-btn" data-dim="timeline" onclick="switchDimension('timeline')">時間軸</button>
+    <button class="dim-btn" data-dim="keyword" onclick="switchDimension('keyword')">關鍵字</button>
+  </div>
+  <div class="separator"></div>
+  <button class="dim-btn" onclick="toggleTheme()" id="theme-btn" title="切換深色/淺色">Light</button>
+  <button class="dim-btn" onclick="toggleSettings()">⚙ 設定</button>
+</div>
+
 <canvas id="canvas"></canvas>
 <div class="tooltip" id="tooltip"></div>
-
-<div id="sidebar">
-  <span class="close-btn" onclick="closeSidebar()">✕</span>
-  <h2 id="sb-title"></h2>
-  <div id="sb-tags"></div>
-  <div class="content" id="sb-content"></div>
-  <button id="open-file-btn" onclick="openFile()">📄 開啟原始檔案</button>
-  <div class="section-title">正向連結</div>
-  <div class="links" id="sb-links"></div>
-  <div class="section-title">反向連結</div>
-  <div class="links" id="sb-backlinks"></div>
-</div>
 
 <div id="md-viewer">
   <span class="close-md" onclick="closeMd()">← 返回圖譜</span>
   <div id="md-content"></div>
 </div>
 
+<div id="left-panel">
+  <div class="panel-resize" id="left-resize"></div>
+  <div class="ctrl-group">
+    <div class="ctrl-label">文字大小 <span id="fontsize-val">100%</span></div>
+    <div class="slider-wrap">
+      <input type="range" min="50" max="200" value="100" oninput="updateFontSize(this.value)">
+    </div>
+  </div>
+  <div class="ctrl-group">
+    <div class="ctrl-label">顯示</div>
+    <div style="display:flex;gap:4px;margin-top:4px">
+      <button class="dim-btn active" style="flex:1;padding:5px 0;font-size:11px" id="filter-docs-btn" onclick="toggleNoContent()">文件</button>
+      <button class="dim-btn" style="flex:1;padding:5px 0;font-size:11px" id="filter-all-btn" onclick="toggleNoContent()">全部</button>
+    </div>
+  </div>
+  <div class="ctrl-group">
+    <h4>檔案類型</h4>
+    <div id="legend"></div>
+  </div>
+  <div class="ctrl-group" id="keyword-panel" style="display:none">
+    <h4>關鍵字清單</h4>
+    <input type="text" id="keyword-search" placeholder="搜尋關鍵字..." style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;font-size:12px;margin-bottom:8px;outline:none" oninput="filterKeywordList(this.value)">
+    <div id="keyword-list" style="max-height:calc(100vh - 420px);overflow-y:auto"></div>
+  </div>
+</div>
+
+<div id="spacing-bar">
+  <span>間距</span>
+  <input type="range" id="spacing-slider" min="10" max="500" value="100" oninput="updateSpacing(this.value)">
+  <span id="spacing-val">100%</span>
+  <div class="spacer"></div>
+  <button class="dim-btn" style="padding:4px 10px;font-size:11px" onclick="resetZoom()">重置視圖</button>
+</div>
+
+<div id="sidebar">
+  <div class="panel-resize" id="right-resize"></div>
+  <button class="close-btn" onclick="closeSidebar()">✕</button>
+  <h2 id="sb-title"></h2>
+  <div class="file-meta" id="sb-meta"></div>
+  <div id="sb-tags"></div>
+  <div id="sb-summary-section" style="display:none">
+    <div class="section-title">摘要</div>
+    <div id="sb-summary"></div>
+  </div>
+  <div id="sb-keywords-section" style="display:none">
+    <div class="section-title">關鍵字</div>
+    <div id="sb-keywords"></div>
+  </div>
+  <button class="action-btn" id="open-file-btn" onclick="openFile()">📄 開啟檔案</button>
+  <button class="action-btn" id="open-source-btn" onclick="openSource()" style="display:none;margin-top:6px;background:transparent">📂 開啟原始檔案</button>
+  <div class="section-title" id="sb-children-title" style="display:none">包含的檔案</div>
+  <div class="child-list" id="sb-children"></div>
+  <div class="section-title">相關文件</div>
+  <div class="child-list" id="sb-neighbors"></div>
+</div>
+
+<div id="timeline-bar">
+  <label>時間篩選：<span id="timeline-label">全部</span></label>
+  <input type="range" id="timeline-range" min="0" max="100" value="100">
+  <div class="range-labels">
+    <span id="timeline-min"></span>
+    <span id="timeline-max"></span>
+  </div>
+</div>
+
 <div id="controls">
-  <button onclick="resetZoom()">重置視圖</button>
-  <button onclick="toggleLabels()">切換標籤</button>
+  <button onclick="toggleLabels()">標籤</button>
+  <button onclick="toggleChat()" id="chat-toggle-btn">💬 查詢</button>
+</div>
+
+<div id="chat-panel">
+  <div id="chat-resize"></div>
+  <div id="chat-header">
+    <span class="chat-title">💬 知識庫查詢</span>
+    <div class="chat-controls">
+      <select id="model-select" onchange="setModel(this.value)">
+        <option value="claude-sonnet">Claude Sonnet</option>
+      </select>
+      <button class="chat-ctrl-btn" onclick="toggleDock()" title="切換停靠位置" id="dock-btn">⬒</button>
+      <button class="chat-ctrl-btn" onclick="clearChat()" title="清除對話">🗑</button>
+      <button class="chat-ctrl-btn" onclick="toggleChat()" title="關閉">✕</button>
+    </div>
+  </div>
+  <div id="chat-messages"></div>
+  <div id="chat-input-area">
+    <input type="text" id="chat-input" placeholder="輸入問題，例如：新加坡的 AI 政策有哪些重點？" onkeydown="handleChatKey(event)">
+    <button onclick="sendQuery()" id="chat-send-btn">送出</button>
+  </div>
+</div>
+
+<div id="settings-panel">
+  <div class="settings-card">
+    <h2>⚙ 知識庫設定</h2>
+
+    <!-- 已有專案列表 -->
+    <div class="field">
+      <label>已建立的專案</label>
+      <div class="dir-list" id="project-list">
+        <div style="color:var(--text-muted);font-size:13px">載入中...</div>
+      </div>
+    </div>
+
+    <!-- 選擇目錄 -->
+    <div class="field" style="margin-top:20px">
+      <label>選擇目錄</label>
+      <div id="browser-path" style="font-size:13px;color:var(--text);padding:6px 0;word-break:break-all"></div>
+      <div id="browser-list" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:6px"></div>
+    </div>
+
+    <div class="field">
+      <div id="selected-dir-info" style="font-size:13px;color:var(--accent);padding:6px 0;display:none"></div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;color:var(--text-dim)">AI 模型</label>
+        <select id="build-model-select" style="width:100%;margin-top:4px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px">
+          <option value="claude-sonnet">Claude Sonnet</option>
+          <option value="claude-haiku">Claude Haiku（快速）</option>
+          <option value="gemini-flash">Gemini 2.5 Flash（快速）</option>
+          <option value="gemini-pro">Gemini 2.5 Pro</option>
+        </select>
+      </div>
+      <div class="btn-row">
+        <button class="btn-secondary" onclick="scanDirectory(true)" id="scan-llm-btn">🤖 AI 分析</button>
+        <button class="btn-secondary" onclick="scanDirectory(false)" id="scan-fast-btn">📁 快速掃描</button>
+      </div>
+    </div>
+
+    <div id="scan-status" style="display:none;margin-top:12px;padding:12px;background:var(--bg-input);border-radius:8px;font-size:13px;color:var(--text-dim)"></div>
+
+    <div class="btn-row" style="margin-top:20px">
+      <button class="btn-primary" onclick="toggleSettings()">關閉</button>
+    </div>
+  </div>
 </div>
 
 <script>
+// ====== 全域狀態 ======
+let graphData = null;
+let visibleNodes = [];
+let visibleEdges = [];
+let currentDimension = 'category';
+let showLabels = true;
+let selectedNode = null;
+let searchTerm = '';
+let highlightedCategories = new Set();
+let timelineFilter = null;
+let hoveredNode = null;
+let hideNoContent = true; // 預設隱藏無摘要的圖片等節點
+let spacingFactor = 1.0; // 節點間距倍率（拉桿控制）
+
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
+let zoom = 1, panX = 0, panY = 0;
+let isDragging = false, lastMouse = null, dragNode = null, mouseDownPos = null;
+let simNodes = [];
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+// ====== 顏色 ======
+const CATEGORY_COLORS = {
+  '資料夾': '#60a5fa', '關鍵字': '#f59e0b', '文件': '#a78bfa', '簡報': '#f472b6',
+  '試算表': '#34d399', '圖片': '#fbbf24', '影音': '#fb923c',
+  '程式碼': '#38bdf8', '壓縮檔': '#94a3b8', '其他': '#6b7280',
+};
+const DEPTH_COLORS = ['#7c83fd','#a78bfa','#60a5fa','#34d399','#fbbf24','#f472b6','#fb923c','#38bdf8','#94a3b8'];
+const TIMELINE_COLORS = ['#1e3a5f','#1e4d7a','#1e6091','#2084c7','#38bdf8','#60ccfa','#7dd3fc','#a5e0fb','#c9edfc','#e0f5fe'];
 
-// 知識節點資料
-const nodes = [
-  {
-    id: 'index', label: '00-INDEX', type: 'index',
-    x: 0, y: 0, r: 28,
-    color: '#7c83fd',
-    title: '知識庫索引',
-    file: '00-INDEX.md',
-    tags: ['#ATD', '#CSDI', '#知識庫'],
-    content: '整體導覽入口。包含所有筆記的快速查詢對應表、最重要的 5 個數字，以及原始檔案對照。',
-    links: ['q1q5', 'data']
-  },
-  {
-    id: 'q1q5', label: 'Q1-Q5 完整版', type: 'main',
-    x: -200, y: -120, r: 38,
-    color: '#a78bfa',
-    title: 'ATD 獎項申請 Q1-Q5',
-    file: '01-ATD獎項申請-Q1-Q5完整版.md',
-    tags: ['#申請文件', '#CSDI', '#AI人才培育', '#可信賴AI'],
-    content: 'CSDI 的完整申請論述。涵蓋：為何值得獲獎、創新文化、持續學習機制、商業背景與創新方案、成效與可複製性。',
-    links: ['index', 'data', 'q1', 'q2', 'q3', 'q4', 'q5']
-  },
-  {
-    id: 'data', label: '數據速查', type: 'main',
-    x: 200, y: -120, r: 32,
-    color: '#34d399',
-    title: '數據與成效速查',
-    file: '02-數據與成效速查.md',
-    tags: ['#數據', '#成效', '#關鍵數字'],
-    content: '所有關鍵數字彙整。包括規模數字、學習平台、人才培育、組織轉型、預算投資、國際影響。',
-    links: ['index', 'q1q5', 'intl', 'partners']
-  },
-  {
-    id: 'q1', label: 'Q1 為何值得獲獎', type: 'sub',
-    x: -360, y: -60, r: 22,
-    color: '#f472b6',
-    title: 'Q1：為何值得獲獎',
-    tags: ['#五大差異', '#規模', '#參與率'],
-    content: '五大全球獨特差異化特點：規模與參與文化、全球首創學習架構、系統性混成學習、跨部門創新生態、制度化同儕知識倍增。',
-    links: ['q1q5']
-  },
-  {
-    id: 'q2', label: 'Q2 創新文化', type: 'sub',
-    x: -380, y: 60, r: 22,
-    color: '#f472b6',
-    title: 'Q2：創新文化',
-    tags: ['#敏捷開發', '#數據驅動', '#由上而下', '#由下而上'],
-    content: '由上而下（總統層級 AI 內閣 2.0）與由下而上（自願參與、99.97% 參與率）雙機制。預算增加 340%。',
-    links: ['q1q5']
-  },
-  {
-    id: 'q3', label: 'Q3 持續學習', type: 'sub',
-    x: -300, y: 160, r: 22,
-    color: '#f472b6',
-    title: 'Q3：持續學習與創新',
-    tags: ['#AI加速AI', '#混成學習', '#ONO'],
-    content: 'AI 加速 AI 學習三大支柱：課程優化、生成式 AI 開發、智慧分析個人化。每月分析 125 萬學習者資料。',
-    links: ['q1q5']
-  },
-  {
-    id: 'q4', label: 'Q4 商業背景', type: 'sub',
-    x: -140, y: 230, r: 22,
-    color: '#f472b6',
-    title: 'Q4：商業情境與創新方案',
-    tags: ['#AI學習地圖', '#認證系統', '#人本設計'],
-    content: '面對台灣地緣政治、產業轉型三重挑戰，CSDI 創建 AI 學習地圖（捷運視覺化）、漸進式認證、AI 加速 AI 教學法、ONO 混成學習。',
-    links: ['q1q5']
-  },
-  {
-    id: 'q5', label: 'Q5 成效與複製', type: 'sub',
-    x: 60, y: 230, r: 22,
-    color: '#f472b6',
-    title: 'Q5：成效、永續性與可複製性',
-    tags: ['#五大維度', '#三層架構', '#國際複製'],
-    content: '五大維度成效：參與投入、職能建構、組織轉型、文化行為改變、國際認可。永續三層：制度、文化、技術。',
-    links: ['q1q5', 'intl']
-  },
-  {
-    id: 'intl', label: '國際複製', type: 'topic',
-    x: 320, y: 80, r: 26,
-    color: '#fb923c',
-    title: '國際影響與複製',
-    tags: ['#越南', '#菲律賓', '#OECD', '#UNESCO'],
-    content: '越南：120 萬公務員採用學習地圖。菲律賓：200 萬公務員認證制度。OECD：制定國際標準。巴拉圭：混成學習試行。UNESCO：AI 職能框架（2026）。',
-    links: ['data', 'q5']
-  },
-  {
-    id: 'partners', label: '合作夥伴', type: 'topic',
-    x: 340, y: -60, r: 24,
-    color: '#fb923c',
-    title: '合作夥伴',
-    tags: ['#Google', '#AWS', '#Microsoft', '#NVIDIA'],
-    content: '科技企業：Google、AWS、Microsoft、NVIDIA（長期合作，非一次性）。每年 25,000+ 員工赴合作夥伴設施參訪。',
-    links: ['data']
-  },
-  {
-    id: 'csdi', label: 'CSDI', type: 'org',
-    x: -60, y: -230, r: 30,
-    color: '#60a5fa',
-    title: '公務人力發展學院（CSDI）',
-    tags: ['#台灣', '#公部門', '#AI培訓'],
-    content: '台灣公務人力發展學院。在 AI 內閣 2.0 計畫下，負責全台 36 萬名公務員 AI 培訓。全球首個成功規模化的公部門 AI 人才發展生態系。',
-    links: ['q1q5', 'index']
-  },
-  {
-    id: 'champions', label: 'AI Champions', type: 'topic',
-    x: -180, y: 280, r: 20,
-    color: '#fbbf24',
-    title: 'AI Champions 制度',
-    tags: ['#種子人才', '#同儕學習', '#1200名'],
-    content: '1,200 名認證 AI Champions，每週主持跨機關「AI 諮詢時光」，每月觸及 15,000+ 公務員。形成自我維繫的知識倍增網絡。',
-    links: ['q1q5', 'q3']
-  },
-  // 原始檔案節點
-  {
-    id: 'pptx2026', label: '工作坊簡報 2026', type: 'file',
-    x: 200, y: 260, r: 18,
-    color: '#f97316',
-    title: '2026 ATD 工作坊簡報',
-    file: '../!2026-ATD-工作坊.pptx',
-    tags: ['#pptx', '#工作坊', '#2026'],
-    content: '2026 年 ATD 工作坊主簡報（PowerPoint 格式）。',
-    links: ['index']
-  },
-  {
-    id: 'pdf2026', label: '工作坊 PDF', type: 'file',
-    x: 300, y: 200, r: 16,
-    color: '#ef4444',
-    title: '2026 ATD 工作坊 PDF',
-    file: '../!2026-ATD-工作坊.pdf',
-    tags: ['#pdf', '#工作坊', '#2026'],
-    content: '2026 年 ATD 工作坊簡報的 PDF 輸出版本。',
-    links: ['index']
-  },
-  {
-    id: 'award2018', label: '2018 獎項申請', type: 'file',
-    x: 380, y: 140, r: 16,
-    color: '#ef4444',
-    title: 'ATD 2018 獎項申請（歷史參考）',
-    file: '../ATD_Innovation_in_Talent_Development_Award_Application_2018_(2)_-_JOHNLIAO.pdf',
-    tags: ['#pdf', '#2018', '#歷史版本'],
-    content: '2018 年的 ATD 獎項申請文件，供歷史比較參考。',
-    links: ['q1q5']
-  },
-];
+// ====== 載入 ======
+async function loadData() {
+  try {
+    const resp = await fetch('graph-data.json');
+    if (!resp.ok) throw new Error('找不到 graph-data.json\n請先執行：python3 km-scan.py /你的目錄');
+    graphData = await resp.json();
+    init();
+  } catch (e) {
+    document.querySelector('#loading .msg').textContent = '❌ ' + e.message;
+    document.querySelector('#loading .spinner').style.display = 'none';
+  }
+}
 
-// 建立連結
-const edges = [];
-nodes.forEach(n => {
-  n.links.forEach(lid => {
-    if (n.id < lid) {
-      edges.push({ source: n.id, target: lid });
-    }
-  });
+function init() {
+  document.getElementById('loading').classList.add('hidden');
+  const meta = graphData.meta;
+  document.getElementById('info-text').innerHTML =
+    `<span>${meta.rootName}</span> — ${meta.totalFiles} 個檔案 · ${meta.totalFolders} 個資料夾`;
+  const dirEl = document.getElementById('current-dir');
+  if (dirEl) dirEl.textContent = meta.rootDir || meta.rootName;
+  resizeCanvas();
+  buildVisualization();
+  draw();
+}
+
+// ====== 維度切換 ======
+function switchDimension(dim) {
+  currentDimension = dim;
+  document.querySelectorAll('.dim-btn[data-dim]').forEach(b => b.classList.toggle('active', b.dataset.dim === dim));
+  const tbar = document.getElementById('timeline-bar');
+  if (dim === 'timeline') { tbar.classList.add('visible'); setupTimeline(); }
+  else { tbar.classList.remove('visible'); timelineFilter = null; }
+  // 關鍵字面板
+  const kwPanel = document.getElementById('keyword-panel');
+  if (dim === 'keyword') { kwPanel.style.display = 'block'; buildKeywordList(); }
+  else { kwPanel.style.display = 'none'; }
+  highlightedCategories.clear();
+  buildVisualization();
+}
+
+function setupTimeline() {
+  if (!graphData || !graphData.meta.dateRange) return;
+  const r = graphData.meta.dateRange;
+  document.getElementById('timeline-min').textContent = r.min.slice(0,10);
+  document.getElementById('timeline-max').textContent = r.max.slice(0,10);
+  document.getElementById('timeline-label').textContent = '全部';
+  document.getElementById('timeline-range').value = 100;
+}
+
+document.getElementById('timeline-range').addEventListener('input', function() {
+  if (!graphData || !graphData.meta.dateRange) return;
+  const val = parseInt(this.value), r = graphData.meta.dateRange;
+  const minT = new Date(r.min).getTime(), maxT = new Date(r.max).getTime();
+  const cutoff = new Date(minT + (maxT - minT) * val / 100);
+  timelineFilter = cutoff.toISOString();
+  document.getElementById('timeline-label').textContent = val === 100 ? '全部' : cutoff.toISOString().slice(0,10);
+  buildVisualization();
 });
 
-// 物理模擬
-let zoom = 1, panX = canvas.width/2, panY = canvas.height/2;
-let isDragging = false, lastMouse = null, dragNode = null;
-let showLabels = true;
-let animFrame;
-let selectedNode = null;
+// ====== 建立視覺化 ======
+function buildVisualization() {
+  if (!graphData) return;
+  let nodes = graphData.nodes, edges = graphData.edges;
 
-function getNode(id) { return nodes.find(n => n.id === id); }
-
-// 力導向佈局
-function applyForces() {
-  const k = 0.01, repel = 8000, damp = 0.85;
-  nodes.forEach(n => { n.vx = n.vx || 0; n.vy = n.vy || 0; });
-
-  nodes.forEach((a, i) => {
-    nodes.forEach((b, j) => {
-      if (i >= j) return;
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-      const f = repel / (dist * dist);
-      a.vx -= f * dx / dist;
-      a.vy -= f * dy / dist;
-      b.vx += f * dx / dist;
-      b.vy += f * dy / dist;
+  // 隱藏無內容的節點（圖片等）
+  if (hideNoContent) {
+    const keepIds = new Set();
+    nodes.forEach(n => {
+      if (n.type === 'folder') keepIds.add(n.id);
+      else if (n.summary && !n.summary.startsWith('（') && !n.summary.endsWith('檔案。')) keepIds.add(n.id);
     });
+    nodes = nodes.filter(n => keepIds.has(n.id));
+    edges = edges.filter(e => keepIds.has(e.source) && keepIds.has(e.target));
+  }
+
+  if (timelineFilter) {
+    const ids = new Set();
+    nodes = nodes.filter(n => { if (n.type==='folder'){ids.add(n.id);return true;} if(n.modified&&n.modified<=timelineFilter){ids.add(n.id);return true;} return false; });
+    edges = edges.filter(e => ids.has(e.source) && ids.has(e.target));
+  }
+  if (searchTerm) {
+    const term = searchTerm.toLowerCase(), matchIds = new Set();
+    nodes.forEach(n => { if (n.label.toLowerCase().includes(term)) matchIds.add(n.id); });
+    nodes.forEach(n => { if (matchIds.has(n.id) && n.parent) matchIds.add(n.parent); });
+    nodes = nodes.filter(n => matchIds.has(n.id));
+    edges = edges.filter(e => matchIds.has(e.source) && matchIds.has(e.target));
+  }
+  if (highlightedCategories.size > 0) {
+    const ids = new Set();
+    nodes.forEach(n => { if (highlightedCategories.has(getNodeGroup(n)) || n.type==='folder') ids.add(n.id); });
+    nodes = nodes.filter(n => ids.has(n.id));
+    edges = edges.filter(e => ids.has(e.source) && ids.has(e.target));
+  }
+
+  // 關鍵字維度：為每個關鍵字建立節點，連結到擁有該關鍵字的檔案
+  if (currentDimension === 'keyword') {
+    const kwMap = {}; // keyword → [node_ids]
+    nodes.forEach(n => {
+      if (n.keywords && n.keywords.length > 0) {
+        n.keywords.forEach(kw => {
+          if (!kwMap[kw]) kwMap[kw] = [];
+          kwMap[kw].push(n.id);
+        });
+      }
+    });
+    // 只保留連結 >= 2 個檔案的關鍵字
+    const kwNodes = [];
+    const kwEdges = [];
+    Object.entries(kwMap).forEach(([kw, fileIds]) => {
+      if (fileIds.length < 2) return;
+      const kwId = 'kw_' + kw;
+      kwNodes.push({
+        id: kwId, label: kw, type: 'keyword', category: '關鍵字',
+        r: Math.max(10, Math.min(20, 8 + fileIds.length * 2)),
+        displayColor: '#f59e0b',
+      });
+      fileIds.forEach(fid => {
+        kwEdges.push({ source: kwId, target: fid, type: 'keyword' });
+      });
+    });
+    nodes = [...nodes, ...kwNodes];
+    edges = kwEdges;
+
+    // 如果有選中特定關鍵字，只顯示該關鍵字和連結的檔案
+    if (activeKeywordFilter) {
+      const kwId = 'kw_' + activeKeywordFilter;
+      const connectedIds = new Set([kwId]);
+      edges.forEach(e => {
+        if (e.source === kwId) connectedIds.add(e.target);
+        if (e.target === kwId) connectedIds.add(e.source);
+      });
+      nodes = nodes.filter(n => connectedIds.has(n.id));
+      edges = edges.filter(e => connectedIds.has(e.source) && connectedIds.has(e.target));
+    }
+  }
+
+  visibleEdges = edges;
+  visibleNodes = nodes;
+
+  const oldPos = {};
+  simNodes.forEach(sn => { oldPos[sn.id] = {x:sn.x,y:sn.y}; });
+
+  const cols = Math.ceil(Math.sqrt(visibleNodes.length));
+  simNodes = visibleNodes.map((n, i) => {
+    const old = oldPos[n.id];
+    // 初始位置：如果有舊位置就用舊的，否則用圓形排列
+    const angle = (i / visibleNodes.length) * Math.PI * 2;
+    const radius = 80 + visibleNodes.length * 8;
+    const defaultX = Math.cos(angle) * radius;
+    const defaultY = Math.sin(angle) * radius;
+    return { ...n,
+      x: old ? old.x : defaultX,
+      y: old ? old.y : defaultY,
+      vx: 0, vy: 0,
+      r: n.r || getNodeRadius(n),
+      displayColor: n.displayColor || getNodeColor(n)
+    };
+  });
+  buildLegend();
+}
+
+function getNodeGroup(n) {
+  if (currentDimension==='category') return n.category;
+  if (currentDimension==='folder') { if(n.type==='folder') return n.label; const p=graphData.nodes.find(x=>x.id===n.parent); return p?p.label:'根目錄'; }
+  if (currentDimension==='timeline') return n.modifiedMonth||'未知';
+  if (currentDimension==='keyword') return n.type==='keyword'?'關鍵字':n.category;
+  return n.category;
+}
+
+function getNodeColor(n) {
+  if (currentDimension==='category') return CATEGORY_COLORS[n.category]||'#6b7280';
+  if (currentDimension==='folder') return DEPTH_COLORS[(n.depth||0)%DEPTH_COLORS.length];
+  if (currentDimension==='timeline') {
+    if (!n.modified||!graphData.meta.dateRange) return '#6b7280';
+    const r=graphData.meta.dateRange, minT=new Date(r.min).getTime(), maxT=new Date(r.max).getTime();
+    const ratio = maxT>minT?(new Date(n.modified).getTime()-minT)/(maxT-minT):0.5;
+    return TIMELINE_COLORS[Math.min(Math.floor(ratio*TIMELINE_COLORS.length),TIMELINE_COLORS.length-1)];
+  }
+  return '#6b7280';
+}
+
+function getNodeRadius(n) {
+  if (n.type==='folder') return Math.max(18, Math.min(36, 14+(n.children?n.children.length:0)*1.5));
+  // 有摘要的文件節點更大
+  if (n.summary && !n.summary.startsWith('（')) {
+    const sizeMap = {'文件':14,'簡報':15,'試算表':13,'程式碼':10,'圖片':6,'影音':7,'壓縮檔':6,'其他':6};
+    return sizeMap[n.category]||10;
+  }
+  const sizeMap = {'文件':10,'簡報':11,'試算表':10,'程式碼':8,'圖片':5,'影音':6,'壓縮檔':5,'其他':5};
+  return sizeMap[n.category]||7;
+}
+
+// ====== 圖例 ======
+function buildLegend() {
+  const groups = {};
+  simNodes.forEach(n => { const g=getNodeGroup(n); groups[g]=(groups[g]||0)+1; });
+  let title = currentDimension==='folder'?'資料夾':currentDimension==='timeline'?'時間':'檔案類型';
+  let html = `<h4>${title}</h4>`;
+  const sorted = Object.entries(groups).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  sorted.forEach(([name,count]) => {
+    const color = currentDimension==='category'?(CATEGORY_COLORS[name]||'#6b7280'):simNodes.find(n=>getNodeGroup(n)===name)?.displayColor||'#6b7280';
+    const dimmed = highlightedCategories.size>0&&!highlightedCategories.has(name)?' dimmed':'';
+    html += `<div class="legend-item${dimmed}" onclick="toggleCategory('${name.replace(/'/g,"\\'")}')">
+      <span class="dot" style="background:${color}"></span><span class="name">${name}</span><span class="count">${count}</span></div>`;
+  });
+  document.getElementById('legend').innerHTML = html;
+}
+
+function toggleCategory(name) {
+  if (highlightedCategories.has(name)) highlightedCategories.delete(name); else highlightedCategories.add(name);
+  buildVisualization();
+}
+
+// ====== 搜尋 ======
+document.getElementById('search-box').addEventListener('input', function() { searchTerm=this.value.trim(); buildVisualization(); });
+
+// ====== 物理 ======
+function applyForces() {
+  const count = simNodes.length;
+  if (count === 0) return;
+
+  // 根據節點數量和間距拉桿動態調整
+  const sf = spacingFactor;
+  const k = 0.005;
+  const repel = Math.max(800, 5000 / Math.sqrt(count)) * sf * sf;
+  const gravity = (0.01 + count * 0.0005) / sf;
+  const damp = 0.75;
+  const maxSpeed = 15;
+
+  simNodes.forEach(n => {
+    n.vx = n.vx || 0; n.vy = n.vy || 0;
+    n.vx -= n.x * gravity;
+    n.vy -= n.y * gravity;
   });
 
-  edges.forEach(e => {
-    const a = getNode(e.source), b = getNode(e.target);
+  // 排斥力
+  for (let i = 0; i < count; i++) {
+    for (let j = i + 1; j < count; j++) {
+      const a = simNodes[i], b = simNodes[j];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const minDist = a.r + b.r + 30;
+      const f = repel / (dist * dist);
+      const fx = f * dx / dist, fy = f * dy / dist;
+      a.vx -= fx; a.vy -= fy;
+      b.vx += fx; b.vy += fy;
+      // 碰撞
+      if (dist < minDist) {
+        const push = (minDist - dist) * 0.2;
+        a.vx -= push * dx / dist; a.vy -= push * dy / dist;
+        b.vx += push * dx / dist; b.vy += push * dy / dist;
+      }
+    }
+  }
+
+  // 彈簧力
+  const nodeMap = {}; simNodes.forEach(n => { nodeMap[n.id] = n; });
+  visibleEdges.forEach(e => {
+    const a = nodeMap[e.source], b = nodeMap[e.target];
     if (!a || !b) return;
     const dx = b.x - a.x, dy = b.y - a.y;
-    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-    const ideal = 160;
-    const f = (dist - ideal) * k;
-    a.vx += f * dx / dist;
-    a.vy += f * dy / dist;
-    b.vx -= f * dx / dist;
-    b.vy -= f * dy / dist;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const ideal = (e.type === 'sibling' ? 60 : e.type === 'semantic' ? 150 : 120) * sf;
+    const s = e.type === 'sibling' ? k * 0.1 : k;
+    const f = (dist - ideal) * s;
+    a.vx += f * dx / dist; a.vy += f * dy / dist;
+    b.vx -= f * dx / dist; b.vy -= f * dy / dist;
   });
 
-  nodes.forEach(n => {
+  // 更新位置（限速）
+  simNodes.forEach(n => {
     if (n === dragNode) return;
     n.vx *= damp; n.vy *= damp;
+    const speed = Math.sqrt(n.vx * n.vx + n.vy * n.vy);
+    if (speed > maxSpeed) { n.vx *= maxSpeed / speed; n.vy *= maxSpeed / speed; }
     n.x += n.vx; n.y += n.vy;
   });
 }
 
+// ====== 繪製 ======
+function getThemeColors() {
+  const light = currentTheme === 'light';
+  return {
+    bg: light ? '#f5f5f7' : '#1a1a2e',
+    edgeActive: light ? 'rgba(91,99,224,0.7)' : 'rgba(124,131,253,0.7)',
+    edgeSemantic: light ? 'rgba(124,107,196,0.35)' : 'rgba(167,139,250,0.25)',
+    edgeContains: light ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.1)',
+    edgeOther: light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)',
+    labelHi: light ? '#111' : '#fff',
+    labelMid: light ? '#333' : '#ddd',
+    labelLow: light ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.55)',
+  };
+}
+
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  requestAnimationFrame(draw);
+  try {
+    const tc = getThemeColors();
+    canvas.style.background = tc.bg;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(panX, panY);
+    ctx.scale(zoom, zoom);
+    const nodeMap = {};
+    simNodes.forEach(n => { nodeMap[n.id] = n; });
 
-  ctx.save();
-  ctx.translate(panX, panY);
-  ctx.scale(zoom, zoom);
+    // 邊（密集時只顯示 hover/選中節點的連線）
+    const dense = simNodes.length > 30;
+    const focusId = selectedNode?.id || hoveredNode?.id;
+    visibleEdges.forEach(e => {
+      const a = nodeMap[e.source], b = nodeMap[e.target];
+      if (!a || !b) return;
+      const isActive = focusId && (focusId === a.id || focusId === b.id);
 
-  // 畫邊
-  edges.forEach(e => {
-    const a = getNode(e.source), b = getNode(e.target);
-    if (!a || !b) return;
-    const isActive = selectedNode && (selectedNode.id === a.id || selectedNode.id === b.id);
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.strokeStyle = isActive ? 'rgba(124,131,253,0.8)' : 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = isActive ? 2 : 1;
-    ctx.stroke();
-  });
+      // 密集模式：沒有 focus 時只畫很淡的線，有 focus 時只畫相關的
+      if (dense && !isActive) {
+        if (focusId) return; // 有焦點時隱藏無關的線
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = tc.edgeSemantic; ctx.lineWidth = 0.5;
+        ctx.stroke();
+        return;
+      }
 
-  // 畫節點
-  nodes.forEach(n => {
-    const isSelected = selectedNode && selectedNode.id === n.id;
-    const isConnected = selectedNode && selectedNode.links.includes(n.id);
-
-    // 光暈
-    if (isSelected) {
-      const grad = ctx.createRadialGradient(n.x, n.y, n.r, n.x, n.y, n.r * 2.5);
-      grad.addColorStop(0, n.color + '55');
-      grad.addColorStop(1, 'transparent');
       ctx.beginPath();
-      ctx.arc(n.x, n.y, n.r * 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = grad;
-      ctx.fill();
-    }
-
-    ctx.beginPath();
-    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-    ctx.fillStyle = isSelected ? n.color : (isConnected ? n.color + 'cc' : n.color + '88');
-    ctx.fill();
-
-    if (isSelected || isConnected) {
-      ctx.strokeStyle = n.color;
-      ctx.lineWidth = 2;
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      if (isActive) { ctx.strokeStyle = tc.edgeActive; ctx.lineWidth = 2.5; }
+      else if (e.type === 'semantic' || e.type === 'keyword') { ctx.strokeStyle = tc.edgeSemantic; ctx.lineWidth = 1; }
+      else if (e.type === 'contains') { ctx.strokeStyle = tc.edgeContains; ctx.lineWidth = 0.6; }
+      else { ctx.strokeStyle = tc.edgeOther; ctx.lineWidth = 0.4; }
       ctx.stroke();
-    }
+    });
 
-    if (showLabels) {
-      ctx.font = `${Math.max(10, n.r * 0.5)}px Segoe UI`;
-      ctx.fillStyle = isSelected ? '#fff' : 'rgba(255,255,255,0.75)';
-      ctx.textAlign = 'center';
-      ctx.fillText(n.label, n.x, n.y + n.r + 14);
-    }
-  });
+    // 節點
+    simNodes.forEach(n => {
+      const isSel = selectedNode && selectedNode.id === n.id;
+      const isNb = selectedNode && isConnected(selectedNode.id, n.id);
+      const isHov = hoveredNode && hoveredNode.id === n.id;
 
-  ctx.restore();
-  applyForces();
-  animFrame = requestAnimationFrame(draw);
+      // 光暈
+      if (isSel) {
+        const grad = ctx.createRadialGradient(n.x, n.y, n.r, n.x, n.y, n.r * 3);
+        grad.addColorStop(0, n.displayColor + '44');
+        grad.addColorStop(1, 'transparent');
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r * 3, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+
+      // 形狀
+      ctx.beginPath();
+      if (n.type === 'folder') {
+        roundRect(ctx, n.x - n.r, n.y - n.r, n.r * 2, n.r * 2, 6);
+      } else if (n.type === 'keyword') {
+        ctx.moveTo(n.x, n.y - n.r);
+        ctx.lineTo(n.x + n.r, n.y);
+        ctx.lineTo(n.x, n.y + n.r);
+        ctx.lineTo(n.x - n.r, n.y);
+        ctx.closePath();
+      } else {
+        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      }
+
+      const dense = simNodes.length > 30;
+      const alpha = isSel ? 'ff' : isNb ? 'dd' : isHov ? 'ee' : selectedNode ? '22' : dense ? '77' : '99';
+      ctx.fillStyle = (n.displayColor || '#6b7280') + alpha;
+      ctx.fill();
+      if (isSel || isNb || isHov) {
+        ctx.strokeStyle = n.displayColor || '#6b7280';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // 標籤
+      {
+        const dense = simNodes.length > 30;
+        let show;
+        const few = simNodes.length <= 10;
+        if (labelMode === 2) {
+          show = false;
+        } else if (labelMode === 1) {
+          show = true;
+        } else if (few) {
+          show = true;
+        } else {
+          // 自動：只顯示 hover、選中、鄰居
+          show = isSel || isNb || isHov;
+        }
+        if (show) {
+          const fs = Math.max(10, Math.min(14, n.r * 0.85)) * labelScale;
+          ctx.font = fs + 'px Segoe UI,sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = isSel ? tc.labelHi : (isNb || isHov) ? tc.labelMid : tc.labelLow;
+          const maxLen = zoom > 1 ? 28 : 18;
+          const label = n.label.length > maxLen ? n.label.slice(0, maxLen - 2) + '...' : n.label;
+          ctx.fillText(label, n.x, n.y + n.r + 14);
+        }
+      }
+    });
+
+    ctx.restore();
+    applyForces();
+  } catch (err) {
+    // 在 canvas 上顯示錯誤
+    ctx.restore();
+    ctx.fillStyle = '#ff0000';
+    ctx.font = '14px monospace';
+    ctx.fillText('ERROR: ' + err.message, 20, 80);
+    console.error('[draw error]', err);
+  }
 }
 
-// 互動事件
-function getMousePos(e) {
-  return { x: (e.clientX - panX) / zoom, y: (e.clientY - panY) / zoom };
+function roundRect(ctx,x,y,w,h,r) {
+  ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
 }
-function hitTest(mx, my) {
-  return nodes.find(n => Math.hypot(n.x - mx, n.y - my) < n.r + 8);
-}
+
+function isConnected(a,b) { return visibleEdges.some(e=>(e.source===a&&e.target===b)||(e.source===b&&e.target===a)); }
+
+// ====== 互動 ======
+function getMousePos(e) { return {x:(e.clientX-panX)/zoom, y:(e.clientY-panY)/zoom}; }
+function hitTest(mx,my) { for(let i=simNodes.length-1;i>=0;i--){const n=simNodes[i];if(Math.hypot(n.x-mx,n.y-my)<n.r+6)return n;} return null; }
 
 canvas.addEventListener('mousedown', e => {
-  const mp = getMousePos(e);
-  dragNode = hitTest(mp.x, mp.y);
-  mouseDownPos = { x: e.clientX, y: e.clientY };
-  if (!dragNode) { isDragging = false; lastMouse = { x: e.clientX, y: e.clientY }; }
+  const mp=getMousePos(e); dragNode=hitTest(mp.x,mp.y);
+  mouseDownPos={x:e.clientX,y:e.clientY};
+  if(!dragNode){isDragging=false;lastMouse={x:e.clientX,y:e.clientY};}
 });
 
 canvas.addEventListener('mousemove', e => {
-  if (dragNode) {
-    const mp = getMousePos(e);
-    dragNode.x = mp.x; dragNode.y = mp.y;
-    dragNode.vx = 0; dragNode.vy = 0;
-  } else if (lastMouse) {
-    const dx = e.clientX - mouseDownPos.x, dy = e.clientY - mouseDownPos.y;
-    if (Math.sqrt(dx*dx + dy*dy) > 4) isDragging = true;
-    if (isDragging) {
-      panX += e.clientX - lastMouse.x;
-      panY += e.clientY - lastMouse.y;
-      lastMouse = { x: e.clientX, y: e.clientY };
-    }
-  }
-  const mp = getMousePos(e);
-  const hovered = hitTest(mp.x, mp.y);
-  const tt = document.getElementById('tooltip');
-  if (hovered) {
-    tt.style.display = 'block';
-    tt.style.left = e.clientX + 12 + 'px';
-    tt.style.top = e.clientY - 8 + 'px';
-    tt.textContent = hovered.title;
-    canvas.style.cursor = 'pointer';
-  } else {
-    tt.style.display = 'none';
-    canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
-  }
+  if(dragNode){const mp=getMousePos(e);dragNode.x=mp.x;dragNode.y=mp.y;dragNode.vx=0;dragNode.vy=0;}
+  else if(lastMouse){const dx=e.clientX-mouseDownPos.x,dy=e.clientY-mouseDownPos.y;if(Math.sqrt(dx*dx+dy*dy)>4)isDragging=true;if(isDragging){panX+=e.clientX-lastMouse.x;panY+=e.clientY-lastMouse.y;lastMouse={x:e.clientX,y:e.clientY};}}
+  const mp=getMousePos(e); const hovered=hitTest(mp.x,mp.y); hoveredNode=hovered;
+  const tt=document.getElementById('tooltip');
+  if(hovered){tt.style.display='block';tt.style.left=e.clientX+14+'px';tt.style.top=e.clientY-10+'px';
+    let text=hovered.label;if(hovered.size)text+=` (${hovered.size||hovered.sizeFormatted})`;if(hovered.fileCount)text+=` (${hovered.fileCount} 個檔案)`;
+    tt.textContent=text;canvas.style.cursor='pointer';
+  } else {tt.style.display='none';canvas.style.cursor=isDragging?'grabbing':'grab';}
 });
 
 canvas.addEventListener('mouseup', e => {
-  if (!isDragging) {
-    const mp = getMousePos(e);
-    const clicked = hitTest(mp.x, mp.y);
-    if (clicked) { selectedNode = clicked; openSidebar(clicked); }
-    else { selectedNode = null; closeSidebar(); }
-  }
-  isDragging = false; dragNode = null; lastMouse = null;
+  if(!isDragging&&mouseDownPos){const mp=getMousePos(e);const c=hitTest(mp.x,mp.y);if(c){selectedNode=c;openSidebar(c);}else{selectedNode=null;closeSidebar();}}
+  isDragging=false;dragNode=null;lastMouse=null;mouseDownPos=null;
 });
 
 canvas.addEventListener('wheel', e => {
-  e.preventDefault();
-  const factor = e.deltaY > 0 ? 0.9 : 1.1;
-  zoom = Math.max(0.3, Math.min(3, zoom * factor));
-});
+  e.preventDefault();const f=e.deltaY>0?0.92:1.08;const nz=Math.max(0.15,Math.min(4,zoom*f));
+  panX=e.clientX-(e.clientX-panX)*nz/zoom;panY=e.clientY-(e.clientY-panY)*nz/zoom;zoom=nz;
+}, {passive:false});
 
-// 計算反向連結（哪些節點連到這個節點）
-function getBacklinks(node) {
-  return nodes.filter(n => n.links && n.links.includes(node.id));
-}
-
+// ====== 側邊欄 ======
 function openSidebar(node) {
-  document.getElementById('sb-title').textContent = node.title;
-  document.getElementById('sb-tags').innerHTML = node.tags.map(t => `<span class="tag">${t}</span>`).join('');
-  document.getElementById('sb-content').textContent = node.content;
+  document.getElementById('sb-title').textContent = node.label;
 
-  // 正向連結
-  document.getElementById('sb-links').innerHTML = node.links.map(lid => {
-    const ln = getNode(lid);
-    return ln ? `<a onclick="selectNode('${lid}')">→ ${ln.label}</a>` : '';
-  }).join('') || '<span style="color:#444;font-size:12px">無</span>';
-
-  // 反向連結
-  const bl = getBacklinks(node);
-  document.getElementById('sb-backlinks').innerHTML = bl.length
-    ? bl.map(n => `<a onclick="selectNode('${n.id}')">← ${n.label}</a>`).join('')
-    : '<span style="color:#444;font-size:12px">無</span>';
-
-  // 開啟檔案按鈕
-  const btn = document.getElementById('open-file-btn');
-  if (node.file) {
-    btn.style.display = 'block';
-    btn.setAttribute('data-file', node.file);
-    // 根據副檔名顯示不同圖示
-    const ext = node.file.split('.').pop().toLowerCase();
-    const icons = { md: '📝', docx: '📄', pptx: '📊', pdf: '📕' };
-    btn.textContent = (icons[ext] || '📄') + ' 開啟 ' + node.file;
-  } else {
-    btn.style.display = 'none';
+  let meta = '';
+  if (node.type==='file') {
+    meta += `類型：<span>${node.category}</span> (${node.ext||''})<br>`;
+    if(node.size) meta += `大小：<span>${node.size}</span><br>`;
+    if(node.modifiedDate) meta += `修改日期：<span>${node.modifiedDate}</span>`;
+  } else if (node.type==='folder') {
+    meta += `類型：<span>資料夾</span><br>包含：<span>${node.fileCount} 個檔案</span>`;
   }
+  document.getElementById('sb-meta').innerHTML = meta;
+
+  const tags = node.tags&&node.tags.length>0?node.tags:[node.category,node.ext,node.modifiedDate].filter(Boolean);
+  document.getElementById('sb-tags').innerHTML = tags.map(t=>`<span class="tag">${t}</span>`).join('');
+
+  const ss=document.getElementById('sb-summary-section'), sd=document.getElementById('sb-summary');
+  if(node.summary&&!node.summary.startsWith('（')){ss.style.display='block';sd.textContent=node.summary;}else{ss.style.display='none';}
+
+  const ks=document.getElementById('sb-keywords-section'), kd=document.getElementById('sb-keywords');
+  if(node.keywords&&node.keywords.length>0){ks.style.display='block';kd.innerHTML=node.keywords.map(k=>`<span class="kw">${k}</span>`).join('');}else{ks.style.display='none';}
+
+  // 按鈕
+  const btn=document.getElementById('open-file-btn');
+  const srcBtn=document.getElementById('open-source-btn');
+  if(node.type==='file'){
+    btn.style.display='block';
+    btn.setAttribute('data-path',node.path);btn.setAttribute('data-ext',node.ext||'');btn.setAttribute('data-wiki',node.wikiFile||'');
+    if(node.wikiFile&&node.summary&&!node.summary.startsWith('（')){
+      btn.textContent='📝 閱讀 Wiki 筆記';
+      srcBtn.style.display='block'; srcBtn.setAttribute('data-path',node.path);
+    } else {
+      btn.textContent=(node.ext==='.md'?'📝 閱讀內容':'📄 開啟原始檔案');
+      srcBtn.style.display='none';
+    }
+  } else { btn.style.display='none'; srcBtn.style.display='none'; }
+
+  // 子項目
+  const ct=document.getElementById('sb-children-title'),cd=document.getElementById('sb-children');
+  if(node.type==='folder'&&node.children&&node.children.length>0){
+    ct.style.display='block';
+    cd.innerHTML=node.children.map(cid=>{const c=simNodes.find(n=>n.id===cid);return c?`<a onclick="selectNodeById('${cid}')">${c.type==='folder'?'📁':'📄'} ${c.label}</a>`:''}).join('');
+  } else { ct.style.display='none'; cd.innerHTML=''; }
+
+  // 相鄰
+  const nbs=new Set();
+  visibleEdges.forEach(e=>{if(e.source===node.id)nbs.add(e.target);if(e.target===node.id)nbs.add(e.source);});
+  nbs.delete(node.id);
+  document.getElementById('sb-neighbors').innerHTML=[...nbs].map(id=>{const n=simNodes.find(x=>x.id===id);return n?`<a onclick="selectNodeById('${id}')">${n.type==='folder'?'📁':'📄'} ${n.label}</a>`:''}).join('')||'<span style="color:#444;font-size:13px">無</span>';
 
   document.getElementById('sidebar').classList.add('open');
 }
 
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); selectedNode=null; }
+function selectNodeById(id) { const n=simNodes.find(x=>x.id===id);if(n){selectedNode=n;openSidebar(n);panX=canvas.width/2-n.x*zoom;panY=canvas.height/2-n.y*zoom;} }
+
 function openFile() {
-  const btn = document.getElementById('open-file-btn');
-  const file = btn.getAttribute('data-file');
-  if (!file) return;
+  const btn=document.getElementById('open-file-btn');
+  const path=btn.getAttribute('data-path'),ext=btn.getAttribute('data-ext'),wiki=btn.getAttribute('data-wiki');
+  if(!path)return;
+  if(wiki||ext==='.md'){
+    const projectName = encodeURIComponent(graphData?.meta?.rootName || '');
+    const url=wiki?'/wiki/'+projectName+'/'+wiki:'/api/read?path='+encodeURIComponent(path);
+    fetch(url).then(r=>{if(!r.ok)throw new Error('無法讀取');return r.text();})
+    .then(text=>{document.getElementById('md-content').innerHTML=marked.parse(text);document.getElementById('md-viewer').classList.add('open');})
+    .catch(err=>alert('無法讀取：'+err.message));
+    return;
+  }
+  openFilePath(path);
+}
 
-  const base = window.location.origin + window.location.pathname.replace('graph-view.html', '');
-  let url = file.startsWith('../')
-    ? window.location.origin + '/knowledge-base/' + file
-    : base + file;
+function openSource() {
+  const path=document.getElementById('open-source-btn').getAttribute('data-path');
+  if(path) openFilePath(path);
+}
 
-  const ext = file.split('.').pop().toLowerCase();
+function openFilePath(path) {
+  fetch('/api/open?path='+encodeURIComponent(path))
+  .then(r=>r.json()).then(d=>{if(d.error)alert('無法開啟：'+d.error);})
+  .catch(err=>alert('連線失敗：'+err.message));
+}
 
-  if (ext === 'md') {
-    // md 檔案：fetch 後在側邊渲染
-    fetch(url)
-      .then(r => r.text())
-      .then(text => {
-        document.getElementById('md-content').innerHTML = marked.parse(text);
-        document.getElementById('md-viewer').classList.add('open');
-      })
-      .catch(() => alert('無法載入檔案：' + file));
-  } else {
-    // 其他檔案（pptx, pdf）：直接開新分頁下載
-    window.open(url, '_blank');
+function closeMd() { document.getElementById('md-viewer').classList.remove('open'); }
+
+// ====== 設定面板 ======
+function toggleSettings() {
+  const panel = document.getElementById('settings-panel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) {
+    loadProjects();
+    browseDir(graphData?.meta?.rootDir || '');
+    loadBuildModels();
   }
 }
 
-function closeMd() {
-  document.getElementById('md-viewer').classList.remove('open');
+function loadProjects() {
+  fetch('/api/projects').then(r => r.json()).then(data => {
+    const list = document.getElementById('project-list');
+    if (!data.projects || data.projects.length === 0) {
+      list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px">尚未建立任何專案</div>';
+      return;
+    }
+    list.innerHTML = data.projects.map(p => {
+      const isActive = p.name === data.current;
+      return `<div class="dir-item${isActive ? ' active' : ''}" onclick="switchProject('${p.name.replace(/'/g, "\\'")}')">
+        <div>
+          <div class="dir-name">${isActive ? '● ' : ''}${p.name}</div>
+          <div class="dir-meta">${p.files} 個 Wiki 頁面${p.hasGraph ? '' : ' (無圖譜)'}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }).catch(() => {});
 }
 
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  selectedNode = null;
+function switchProject(name) {
+  fetch('/api/switch-project', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ project: name }),
+  }).then(r => r.json()).then(data => {
+    if (data.ok) { location.reload(); }
+    else { alert(data.error); }
+  }).catch(err => alert('切換失敗：' + err.message));
 }
 
-function selectNode(id) {
-  const n = getNode(id);
-  if (n) { selectedNode = n; openSidebar(n); }
+// ====== 目錄瀏覽器 ======
+let selectedBrowseDir = '';
+
+function browseDir(path) {
+  fetch('/api/browse?path=' + encodeURIComponent(path || ''))
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) { alert(data.error); return; }
+    document.getElementById('browser-path').textContent = data.current;
+    selectedBrowseDir = data.current;
+    document.getElementById('selected-dir-info').style.display = 'block';
+    document.getElementById('selected-dir-info').textContent = '已選擇：' + data.current;
+
+    let html = '';
+    if (data.parent) {
+      html += `<div class="browser-item browser-up" onclick="browseDir('${data.parent.replace(/'/g, "\\'")}')">
+        <span class="icon">⬆</span><span class="name">上一層</span></div>`;
+    }
+    data.items.forEach(item => {
+      const count = item.count >= 0 ? item.count + ' 項' : '';
+      html += `<div class="browser-item" ondblclick="browseDir('${item.path.replace(/'/g, "\\'")}')" onclick="selectBrowseDir(this, '${item.path.replace(/'/g, "\\'")}')">
+        <span class="icon">📁</span><span class="name">${item.name}</span><span class="meta">${count}</span></div>`;
+    });
+    if (data.items.length === 0) {
+      html += '<div style="padding:12px;color:var(--text-muted);font-size:13px;text-align:center">沒有子資料夾</div>';
+    }
+    document.getElementById('browser-list').innerHTML = html;
+  }).catch(err => alert('瀏覽失敗：' + err.message));
 }
 
-function resetZoom() { zoom = 1; panX = canvas.width/2; panY = canvas.height/2; }
-function toggleLabels() { showLabels = !showLabels; }
+function selectBrowseDir(el, path) {
+  document.querySelectorAll('.browser-item.selected').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedBrowseDir = path;
+  document.getElementById('selected-dir-info').style.display = 'block';
+  document.getElementById('selected-dir-info').textContent = '已選擇：' + path;
+}
 
-window.addEventListener('resize', () => {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  panX = canvas.width/2; panY = canvas.height/2;
+function loadBuildModels() {
+  fetch('/api/models').then(r => r.json()).then(data => {
+    const sel = document.getElementById('build-model-select');
+    sel.innerHTML = '';
+    data.models.forEach(m => {
+      if (!m.available) return;
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+      sel.appendChild(opt);
+    });
+  }).catch(() => {});
+}
+
+function scanDirectory(useLlm) {
+  const dir = selectedBrowseDir;
+  if (!dir) { alert('請先選擇一個資料夾'); return; }
+
+  const status = document.getElementById('scan-status');
+  const llmBtn = document.getElementById('scan-llm-btn');
+  const fastBtn = document.getElementById('scan-fast-btn');
+  status.style.display = 'block';
+  status.textContent = useLlm ? '🤖 AI 分析中，請稍候（可能需要幾分鐘）...' : '📁 掃描中...';
+  llmBtn.disabled = true; fastBtn.disabled = true;
+
+  fetch('/api/scan', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ directory: dir, useLlm, model: document.getElementById('build-model-select').value }),
+  }).then(r => r.json()).then(data => {
+    llmBtn.disabled = false; fastBtn.disabled = false;
+    if (data.ok) {
+      status.innerHTML = `✅ 完成！專案「${data.project}」已建立。<br><button class="btn-primary" style="margin-top:8px;padding:8px 16px" onclick="location.reload()">重新載入圖譜</button>`;
+    } else {
+      status.textContent = '❌ ' + data.error;
+    }
+  }).catch(err => {
+    llmBtn.disabled = false; fastBtn.disabled = false;
+    status.textContent = '❌ ' + err.message;
+  });
+}
+
+// ====== 控制 ======
+function resetZoom() { zoom=1; panX=canvas.width/2; panY=canvas.height/2; }
+// 標籤模式：0=自動(hover才顯示) 1=顯示大節點 2=全部隱藏
+let labelMode = 0;
+const labelModeNames = ['自動', '常顯', '隱藏'];
+function toggleLabels() {
+  labelMode = (labelMode + 1) % 3;
+  const btn = document.querySelector('#controls button');
+  btn.textContent = '標籤：' + labelModeNames[labelMode];
+}
+
+// ====== 主題切換 ======
+let currentTheme = localStorage.getItem('km-theme') || 'dark';
+if (currentTheme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+
+function toggleTheme() {
+  currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  if (currentTheme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+  updateThemeBtn();
+  localStorage.setItem('km-theme', currentTheme);
+}
+function updateThemeBtn() {
+  document.getElementById('theme-btn').textContent = currentTheme === 'dark' ? 'Light' : 'Dark';
+}
+document.addEventListener('DOMContentLoaded', updateThemeBtn);
+
+let labelScale = 1.0;
+
+// ====== 左右面板拖曳調整大小 ======
+function setupPanelResize(handleId, panelId, side) {
+  const handle = document.getElementById(handleId);
+  const panel = document.getElementById(panelId);
+  if (!handle || !panel) return;
+  let dragging = false, startX, startW;
+
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault(); dragging = true; startX = e.clientX; startW = panel.offsetWidth;
+    handle.classList.add('dragging');
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  function onMove(e) {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    const newW = Math.max(120, Math.min(500, side === 'left' ? startW + dx : startW - dx));
+    panel.style.width = newW + 'px';
+    if (side === 'left') {
+      const bar = document.getElementById('spacing-bar');
+      if (bar) bar.style.left = newW + 'px';
+    }
+  }
+
+  function onUp() {
+    dragging = false; handle.classList.remove('dragging');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setupPanelResize('left-resize', 'left-panel', 'left');
+  setupPanelResize('right-resize', 'sidebar', 'right');
 });
 
-draw();
+// ====== 關鍵字清單 ======
+let allKeywords = []; // {name, count, id}
+
+function buildKeywordList() {
+  if (!graphData) return;
+  const kwMap = {};
+  graphData.nodes.forEach(n => {
+    if (n.keywords && n.keywords.length > 0) {
+      n.keywords.forEach(kw => { kwMap[kw] = (kwMap[kw] || 0) + 1; });
+    }
+  });
+  allKeywords = Object.entries(kwMap)
+    .filter(([_, c]) => c >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({ name, count, id: 'kw_' + name }));
+  renderKeywordList('');
+}
+
+function renderKeywordList(filter) {
+  const list = document.getElementById('keyword-list');
+  const items = filter
+    ? allKeywords.filter(k => k.name.toLowerCase().includes(filter.toLowerCase()))
+    : allKeywords;
+
+  list.innerHTML = items.map(k =>
+    `<div class="kw-item" onclick="selectKeyword('${k.name.replace(/'/g, "\\'")}')" data-kw="${k.name}">
+      <span>${k.name}</span><span class="kw-count">${k.count}</span>
+    </div>`
+  ).join('') || '<div style="padding:8px;color:var(--text-muted);font-size:12px">無符合的關鍵字</div>';
+}
+
+function filterKeywordList(val) { renderKeywordList(val); }
+
+let activeKeywordFilter = null;
+
+function selectKeyword(name) {
+  // 切到關鍵字維度
+  if (currentDimension !== 'keyword') switchDimension('keyword');
+
+  // 高亮按鈕
+  const wasActive = activeKeywordFilter === name;
+  document.querySelectorAll('.kw-item').forEach(el => {
+    el.classList.toggle('active', !wasActive && el.dataset.kw === name);
+  });
+
+  // 切換篩選：再次點擊同一個關鍵字則取消篩選
+  activeKeywordFilter = wasActive ? null : name;
+  buildVisualization();
+
+  // 找到關鍵字節點並選中
+  const kwNode = simNodes.find(n => n.id === 'kw_' + name || n.label === name);
+  if (kwNode) {
+    selectedNode = kwNode;
+    openSidebar(kwNode);
+    panX = canvas.width / 2 - kwNode.x * zoom;
+    panY = canvas.height / 2 - kwNode.y * zoom;
+  }
+}
+
+function updateSpacing(val) {
+  spacingFactor = val / 100;
+  document.getElementById('spacing-val').textContent = val + '%';
+}
+
+function updateFontSize(val) {
+  labelScale = val / 100;
+  document.getElementById('fontsize-val').textContent = val + '%';
+}
+
+function toggleNoContent() {
+  hideNoContent = !hideNoContent;
+  document.getElementById('filter-docs-btn').classList.toggle('active', hideNoContent);
+  document.getElementById('filter-all-btn').classList.toggle('active', !hideNoContent);
+  buildVisualization();
+}
+function resizeCanvas() { canvas.width=window.innerWidth;canvas.height=window.innerHeight;panX=canvas.width/2;panY=canvas.height/2; }
+window.addEventListener('resize', resizeCanvas);
+
+// ====== 查詢面板 ======
+let chatDock = 'bottom'; // 'bottom' or 'right'
+let isComposing = false; // 中文輸入法狀態
+
+// 中文輸入法 Enter 問題修復
+document.addEventListener('DOMContentLoaded', () => {
+  const chatInput = document.getElementById('chat-input');
+  chatInput.addEventListener('compositionstart', () => { isComposing = true; });
+  chatInput.addEventListener('compositionend', () => { isComposing = false; });
+});
+
+function handleChatKey(e) {
+  if (e.key === 'Enter' && !isComposing) sendQuery();
+}
+
+function toggleChat() {
+  const panel = document.getElementById('chat-panel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) {
+    document.getElementById('chat-input').focus();
+    loadModels();
+  }
+}
+
+function toggleDock() {
+  const panel = document.getElementById('chat-panel');
+  if (chatDock === 'bottom') {
+    chatDock = 'right';
+    panel.classList.add('dock-right');
+    panel.style.height = ''; panel.style.width = '480px';
+  } else {
+    chatDock = 'bottom';
+    panel.classList.remove('dock-right');
+    panel.style.width = ''; panel.style.height = '320px';
+  }
+}
+
+function clearChat() { document.getElementById('chat-messages').innerHTML = ''; }
+
+// 拖曳調整大小
+(function() {
+  const resize = document.getElementById('chat-resize');
+  const panel = document.getElementById('chat-panel');
+  let startY, startX, startH, startW, dragging = false;
+
+  resize.addEventListener('mousedown', e => {
+    e.preventDefault(); dragging = true;
+    startY = e.clientY; startX = e.clientX;
+    startH = panel.offsetHeight; startW = panel.offsetWidth;
+    resize.classList.add('dragging');
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  function onMove(e) {
+    if (!dragging) return;
+    if (chatDock === 'bottom') {
+      const newH = Math.max(200, Math.min(window.innerHeight - 100, startH - (e.clientY - startY)));
+      panel.style.height = newH + 'px';
+    } else {
+      const newW = Math.max(320, Math.min(window.innerWidth - 200, startW - (e.clientX - startX)));
+      panel.style.width = newW + 'px';
+    }
+  }
+
+  function onUp() {
+    dragging = false;
+    resize.classList.remove('dragging');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+})();
+
+// 模型管理
+function loadModels() {
+  fetch('/api/models').then(r => r.json()).then(data => {
+    const sel = document.getElementById('model-select');
+    sel.innerHTML = '';
+    data.models.forEach(m => {
+      if (!m.available) return;
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+      if (m.id === data.current) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }).catch(() => {});
+}
+
+function setModel(modelId) {
+  fetch('/api/set-model', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ model: modelId }),
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      const msgs = document.getElementById('chat-messages');
+      msgs.innerHTML += `<div class="msg-model">🔄 已切換至 ${data.current}</div>`;
+    }
+  }).catch(() => {});
+}
+
+function sendQuery() {
+  const input = document.getElementById('chat-input'), q = input.value.trim();
+  if (!q) return;
+  const msgs = document.getElementById('chat-messages'), btn = document.getElementById('chat-send-btn');
+  const modelName = document.getElementById('model-select').selectedOptions[0]?.textContent || '';
+  msgs.innerHTML += `<div class="msg-user">${escapeHtml(q)}</div><div class="msg-loading" id="loading-msg">${escapeHtml(modelName)} 思考中 <span class="dot-pulse"><span></span><span></span><span></span></span></div>`;
+  msgs.scrollTop = msgs.scrollHeight; input.value = ''; btn.disabled = true;
+
+  fetch('/api/query', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({question: q}) })
+  .then(r => r.json()).then(data => {
+    const lm = document.getElementById('loading-msg'); if (lm) lm.remove();
+    if (data.error) {
+      msgs.innerHTML += `<div class="msg-bot" style="color:#f87171">❌ ${escapeHtml(data.error)}</div>`;
+    } else {
+      let answer = data.answer;
+      answer = answer.replace(/\[\[([^\]]+)\]\]/g, (_, name) => `[${name}](#node:${name})`);
+      let html = marked.parse(answer);
+      html = html.replace(/href="#node:([^"]+)"/g, (_, name) =>
+        `href="javascript:void(0)" onclick="findAndSelectNode('${name.replace(/'/g, "\\'")}')" style="color:#7c83fd"`);
+      msgs.innerHTML += `<div class="msg-bot">${html}</div>`;
+      if (data.model) msgs.innerHTML += `<div class="msg-model">— ${data.model}</div>`;
+    }
+    msgs.scrollTop = msgs.scrollHeight; btn.disabled = false;
+  }).catch(err => {
+    const lm = document.getElementById('loading-msg'); if (lm) lm.remove();
+    msgs.innerHTML += `<div class="msg-bot" style="color:#f87171">❌ ${escapeHtml(err.message)}</div>`;
+    msgs.scrollTop = msgs.scrollHeight; btn.disabled = false;
+  });
+}
+
+function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+function findAndSelectNode(name) {
+  const n = simNodes.find(x => x.label===name||x.stem===name||x.label.includes(name)||(x.stem&&x.stem.includes(name)));
+  if (n) { selectedNode=n; openSidebar(n); panX=canvas.width/2-n.x*zoom; panY=canvas.height/2-n.y*zoom; }
+}
+
+// ====== 啟動 ======
+loadData();
 </script>
 </body>
 </html>
