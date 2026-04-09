@@ -9,7 +9,7 @@
   :root {
     --bg-main: #1a1a2e; --bg-panel: #16213e; --bg-input: #0d1117; --bg-card: #0d1117;
     --border: #0f3460; --text: #e0e0e0; --text-dim: #888; --text-muted: #555;
-    --accent: #7c83fd; --accent2: #a78bfa; --accent-hover: #6b72e8;
+    --accent: #3b82f6; --accent2: #0ea5e9; --accent-hover: #2563eb;
     --node-label: rgba(255,255,255,0.55); --edge-default: rgba(255,255,255,0.1);
     --canvas-bg: #1a1a2e;
   }
@@ -36,6 +36,14 @@
   #toolbar .info { font-size: 13px; color: var(--text-dim); }
   #toolbar .info span { color: var(--text); font-weight: 500; }
   .dimension-group { display: flex; gap: 4px; margin-left: auto; }
+  .layout-group { display: flex; gap: 2px; background: var(--bg-input); border-radius: 8px; padding: 2px; }
+  .layout-btn {
+    background: transparent; border: none; color: var(--text-dim);
+    padding: 6px 8px; border-radius: 6px; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .layout-btn:hover { color: var(--text); background: var(--border); }
+  .layout-btn.active { background: var(--accent); color: #fff; }
   .dim-btn {
     background: transparent; border: 1px solid var(--border); color: var(--text-dim);
     padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s;
@@ -51,7 +59,7 @@
 
   /* ====== 左側控制面板 ====== */
   #left-panel {
-    position: fixed; left: 0; top: 52px; width: 180px; height: calc(100vh - 52px);
+    position: fixed; left: 0; top: 52px; width: 140px; height: calc(100vh - 52px);
     background: var(--bg-panel); border-right: 1px solid var(--border);
     padding: 16px; overflow-y: auto; z-index: 15; font-size: 12px;
   }
@@ -111,7 +119,7 @@
   #sb-keywords { margin-top: 8px; }
   #sb-keywords .kw { display: inline-block; background: var(--bg-input); color: var(--text-dim); padding: 3px 10px; border-radius: 4px; font-size: 12px; margin: 2px; border: 1px solid var(--border); }
   #sidebar .child-list a {
-    display: block; color: #a78bfa; font-size: 13px; padding: 4px 0;
+    display: block; color: #0ea5e9; font-size: 13px; padding: 4px 0;
     text-decoration: none; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #sidebar .child-list a:hover { color: #fff; }
@@ -129,9 +137,10 @@
   }
   #md-viewer.open { display: block; }
   #md-viewer .close-md {
-    position: fixed; top: 64px; left: 16px; cursor: pointer;
-    background: var(--bg-panel); border: 1px solid var(--border); color: var(--accent);
-    padding: 8px 14px; border-radius: 6px; font-size: 13px; z-index: 13;
+    position: sticky; top: 0; display: block; width: fit-content; margin: 0 auto 20px;
+    cursor: pointer; background: var(--bg-panel); border: 1px solid var(--border); color: var(--accent);
+    padding: 8px 24px; border-radius: 20px; font-size: 13px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3); z-index: 13;
   }
   #md-viewer .close-md:hover { background: var(--accent); color: #fff; }
   #md-content {
@@ -139,7 +148,7 @@
     font-size: 15px; line-height: 1.8; color: var(--text);
   }
   #md-content h1 { color: var(--accent); font-size: 24px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-  #md-content h2 { color: #a78bfa; font-size: 18px; margin-top: 24px; margin-bottom: 10px; }
+  #md-content h2 { color: #0ea5e9; font-size: 18px; margin-top: 24px; margin-bottom: 10px; }
   #md-content h3 { color: #60a5fa; font-size: 15px; margin-top: 16px; }
   #md-content table { width: 100%; border-collapse: collapse; margin: 12px 0; }
   #md-content th { background: var(--border); color: var(--accent); padding: 8px 12px; text-align: left; font-size: 13px; }
@@ -148,7 +157,7 @@
   #md-content code { background: #1e2a3a; padding: 2px 6px; border-radius: 4px; font-size: 13px; color: #34d399; }
   #md-content pre { background: #1e2a3a; padding: 14px; border-radius: 6px; overflow-x: auto; margin: 12px 0; }
   #md-content pre code { padding: 0; }
-  #md-content blockquote { border-left: 3px solid #7c83fd; padding-left: 16px; color: var(--text-dim); margin: 12px 0; }
+  #md-content blockquote { border-left: 3px solid #3b82f6; padding-left: 16px; color: var(--text-dim); margin: 12px 0; }
   #md-content strong { color: #f0f0f0; }
   #md-content a { color: var(--accent); text-decoration: none; }
   #md-content hr { border: none; border-top: 1px solid #1a2744; margin: 20px 0; }
@@ -178,7 +187,7 @@
   #chat-panel.dock-right #chat-resize {
     top: 0; bottom: 0; left: -4px; width: 8px; cursor: ew-resize;
   }
-  #chat-resize:hover, #chat-resize.dragging { background: #7c83fd44; }
+  #chat-resize:hover, #chat-resize.dragging { background: #3b82f644; }
   #chat-header {
     padding: 10px 16px; border-bottom: 1px solid var(--border);
     display: flex; align-items: center; gap: 12px; flex-shrink: 0;
@@ -235,7 +244,7 @@
     background: var(--accent); border: none; color: #fff; padding: 10px 20px;
     border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;
   }
-  #chat-send-btn:hover { background: #6b72e8; }
+  #chat-send-btn:hover { background: #2563eb; }
   #chat-send-btn:disabled { background: #333; color: var(--text-dim); cursor: not-allowed; }
 
   /* ====== 設定面板（選擇目錄） ====== */
@@ -262,7 +271,7 @@
     flex: 1; background: var(--accent); border: none; color: #fff;
     padding: 12px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;
   }
-  .settings-card .btn-primary:hover { background: #6b72e8; }
+  .settings-card .btn-primary:hover { background: #2563eb; }
   .settings-card .btn-secondary {
     flex: 1; background: transparent; border: 1px solid var(--border); color: var(--text-dim);
     padding: 12px; border-radius: 8px; cursor: pointer; font-size: 14px;
@@ -375,7 +384,22 @@
     <button class="dim-btn" data-dim="keyword" onclick="switchDimension('keyword')">關鍵字</button>
   </div>
   <div class="separator"></div>
-  <button class="dim-btn" onclick="toggleTheme()" id="theme-btn" title="切換深色/淺色">Light</button>
+  <div class="layout-group">
+    <button class="layout-btn active" data-layout="graph" onclick="switchLayout('graph')" title="關聯圖">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="3"/><circle cx="19" cy="6" r="3"/><circle cx="12" cy="19" r="3"/><line x1="7.5" y1="7.5" x2="10.5" y2="17"/><line x1="16.5" y1="7.5" x2="13.5" y2="17"/><line x1="8" y1="6" x2="16" y2="6"/></svg>
+    </button>
+    <button class="layout-btn" data-layout="mindmap" onclick="switchLayout('mindmap')" title="心智圖">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><line x1="12" y1="9" x2="12" y2="3"/><line x1="12" y1="15" x2="12" y2="21"/><line x1="9" y1="12" x2="3" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/><line x1="9.5" y1="9.5" x2="5" y2="5"/><line x1="14.5" y1="9.5" x2="19" y2="5"/><line x1="9.5" y1="14.5" x2="5" y2="19"/><line x1="14.5" y1="14.5" x2="19" y2="19"/></svg>
+    </button>
+    <button class="layout-btn" data-layout="tree" onclick="switchLayout('tree')" title="樹狀圖">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="1" width="10" height="2.5" rx="1"/><rect x="4" y="7" width="10" height="2.5" rx="1"/><rect x="4" y="13" width="8" height="2.5" rx="1"/><rect x="7" y="19" width="8" height="2.5" rx="1"/><line x1="3" y1="3.5" x2="3" y2="7"/><line x1="3" y1="9.5" x2="3" y2="20" stroke-dasharray="0"/><line x1="3" y1="14" x2="4" y2="14"/><line x1="3" y1="20" x2="7" y2="20"/></svg>
+    </button>
+  </div>
+  <div class="separator"></div>
+  <button class="layout-btn" onclick="toggleTheme()" id="theme-btn" title="切換深色/淺色">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="theme-icon-dark" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="theme-icon-light"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
   <button class="dim-btn" onclick="toggleSettings()">⚙ 設定</button>
 </div>
 
@@ -383,14 +407,15 @@
 <div class="tooltip" id="tooltip"></div>
 
 <div id="md-viewer">
-  <span class="close-md" onclick="closeMd()">← 返回圖譜</span>
+  <span class="close-md" onclick="closeMd()">← 返回知識圖譜</span>
   <div id="md-content"></div>
 </div>
 
 <div id="left-panel">
   <div class="panel-resize" id="left-resize"></div>
   <div class="ctrl-group">
-    <div class="ctrl-label">文字大小 <span id="fontsize-val">100%</span></div>
+    <div class="ctrl-label">文字</div>
+    <div style="text-align:center;color:var(--text-muted);font-size:10px" id="fontsize-val">100%</div>
     <div class="slider-wrap">
       <input type="range" min="50" max="200" value="100" oninput="updateFontSize(this.value)">
     </div>
@@ -544,17 +569,18 @@ let simNodes = [];
 
 // ====== 顏色 ======
 const CATEGORY_COLORS = {
-  '資料夾': '#60a5fa', '關鍵字': '#f59e0b', '文件': '#a78bfa', '簡報': '#f472b6',
-  '試算表': '#34d399', '圖片': '#fbbf24', '影音': '#fb923c',
-  '程式碼': '#38bdf8', '壓縮檔': '#94a3b8', '其他': '#6b7280',
+  '資料夾': '#3b82f6', '關鍵字': '#f59e0b', '文件': '#0ea5e9', '簡報': '#f43f5e',
+  '試算表': '#10b981', '圖片': '#eab308', '影音': '#f97316',
+  '程式碼': '#06b6d4', '壓縮檔': '#64748b', '其他': '#6b7280',
+  '網頁': '#0ea5e9', '文字': '#8b5cf6',
 };
-const DEPTH_COLORS = ['#7c83fd','#a78bfa','#60a5fa','#34d399','#fbbf24','#f472b6','#fb923c','#38bdf8','#94a3b8'];
+const DEPTH_COLORS = ['#3b82f6','#0ea5e9','#06b6d4','#10b981','#eab308','#f43f5e','#f97316','#8b5cf6','#64748b'];
 const TIMELINE_COLORS = ['#1e3a5f','#1e4d7a','#1e6091','#2084c7','#38bdf8','#60ccfa','#7dd3fc','#a5e0fb','#c9edfc','#e0f5fe'];
 
 // ====== 載入 ======
 async function loadData() {
   try {
-    const resp = await fetch('graph-data.json');
+    const resp = await fetch('graph-data.json?t=' + Date.now());
     if (!resp.ok) throw new Error('找不到 graph-data.json\n請先執行：python3 km-scan.py /你的目錄');
     graphData = await resp.json();
     init();
@@ -577,6 +603,8 @@ function init() {
 }
 
 // ====== 維度切換 ======
+let currentLayout = 'graph'; // graph | mindmap | tree
+
 function switchDimension(dim) {
   currentDimension = dim;
   document.querySelectorAll('.dim-btn[data-dim]').forEach(b => b.classList.toggle('active', b.dataset.dim === dim));
@@ -588,6 +616,12 @@ function switchDimension(dim) {
   if (dim === 'keyword') { kwPanel.style.display = 'block'; buildKeywordList(); }
   else { kwPanel.style.display = 'none'; }
   highlightedCategories.clear();
+  buildVisualization();
+}
+
+function switchLayout(layout) {
+  currentLayout = layout;
+  document.querySelectorAll('.layout-btn').forEach(b => b.classList.toggle('active', b.dataset.layout === layout));
   buildVisualization();
 }
 
@@ -701,23 +735,175 @@ function buildVisualization() {
   const oldPos = {};
   simNodes.forEach(sn => { oldPos[sn.id] = {x:sn.x,y:sn.y}; });
 
-  const cols = Math.ceil(Math.sqrt(visibleNodes.length));
-  simNodes = visibleNodes.map((n, i) => {
-    const old = oldPos[n.id];
-    // 初始位置：如果有舊位置就用舊的，否則用圓形排列
-    const angle = (i / visibleNodes.length) * Math.PI * 2;
-    const radius = 80 + visibleNodes.length * 8;
-    const defaultX = Math.cos(angle) * radius;
-    const defaultY = Math.sin(angle) * radius;
-    return { ...n,
-      x: old ? old.x : defaultX,
-      y: old ? old.y : defaultY,
-      vx: 0, vy: 0,
-      r: n.r || getNodeRadius(n),
-      displayColor: n.displayColor || getNodeColor(n)
-    };
-  });
+  if (currentLayout === 'mindmap') {
+    simNodes = layoutMindMap(visibleNodes, visibleEdges, oldPos);
+  } else if (currentLayout === 'tree') {
+    simNodes = layoutTree(visibleNodes, visibleEdges, oldPos);
+  } else {
+    const cols = Math.ceil(Math.sqrt(visibleNodes.length));
+    simNodes = visibleNodes.map((n, i) => {
+      const old = oldPos[n.id];
+      const angle = (i / visibleNodes.length) * Math.PI * 2;
+      const radius = 80 + visibleNodes.length * 8;
+      const defaultX = Math.cos(angle) * radius;
+      const defaultY = Math.sin(angle) * radius;
+      return { ...n,
+        x: old ? old.x : defaultX,
+        y: old ? old.y : defaultY,
+        vx: 0, vy: 0,
+        r: n.r || getNodeRadius(n),
+        displayColor: n.displayColor || getNodeColor(n)
+      };
+    });
+  }
   buildLegend();
+}
+
+// ====== 結構佈局的智慧分群 ======
+function getLayoutGroups(nodes) {
+  const fileNodes = nodes.filter(n => n.type !== 'folder');
+  // 嘗試用關鍵字分群（取每個節點的第一個關鍵字）
+  const kwGroups = {};
+  fileNodes.forEach(n => {
+    const kw = (n.keywords && n.keywords.length > 0) ? n.keywords[0] : null;
+    if (kw) { if (!kwGroups[kw]) kwGroups[kw] = []; kwGroups[kw].push(n); }
+  });
+  // 如果關鍵字分群產生 3 組以上，就用關鍵字
+  const kwNames = Object.keys(kwGroups);
+  if (kwNames.length >= 3) {
+    // 把沒有關鍵字的節點分到「其他」
+    const grouped = new Set();
+    kwNames.forEach(k => kwGroups[k].forEach(n => grouped.add(n.id)));
+    const ungrouped = fileNodes.filter(n => !grouped.has(n.id));
+    if (ungrouped.length > 0) kwGroups['其他'] = ungrouped;
+    return kwGroups;
+  }
+  // 否則用 tags 分群
+  const tagGroups = {};
+  fileNodes.forEach(n => {
+    const tag = (n.tags && n.tags.length > 0) ? n.tags[0].replace(/^#/, '') : null;
+    if (tag) { if (!tagGroups[tag]) tagGroups[tag] = []; tagGroups[tag].push(n); }
+  });
+  if (Object.keys(tagGroups).length >= 3) {
+    const grouped = new Set();
+    Object.values(tagGroups).forEach(arr => arr.forEach(n => grouped.add(n.id)));
+    const ungrouped = fileNodes.filter(n => !grouped.has(n.id));
+    if (ungrouped.length > 0) tagGroups['其他'] = ungrouped;
+    return tagGroups;
+  }
+  // 否則用維度的 getNodeGroup
+  const groups = {};
+  fileNodes.forEach(n => {
+    const g = getNodeGroup(n);
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(n);
+  });
+  return groups;
+}
+
+// ====== 心智圖佈局 ======
+function layoutMindMap(nodes, edges, oldPos) {
+  const groups = getLayoutGroups(nodes);
+
+  const groupNames = Object.keys(groups);
+  const totalGroups = groupNames.length;
+  const result = [];
+
+  // 群組交替分配到左右兩側
+  // 右側群組角度在 -60° ~ +60°，左側在 120° ~ 240°
+  const rightCount = Math.ceil(totalGroups / 2);
+  const leftCount = totalGroups - rightCount;
+
+  groupNames.forEach((gName, gi) => {
+    const members = groups[gName];
+    const isRight = gi % 2 === 0;
+    const sideIndex = Math.floor(gi / 2);
+    const sideCount = isRight ? rightCount : leftCount;
+
+    // 計算這個群組的基準角度
+    let baseAngle;
+    if (isRight) {
+      // 右側：從 -50° 到 +50°
+      baseAngle = sideCount > 1 ? (-50 + sideIndex * (100 / (sideCount - 1))) * Math.PI / 180 : 0;
+    } else {
+      // 左側：從 130° 到 230°
+      baseAngle = sideCount > 1 ? (130 + sideIndex * (100 / (sideCount - 1))) * Math.PI / 180 : Math.PI;
+    }
+
+    // 群組中心距離根節點
+    const groupDist = 200;
+    const gx = Math.cos(baseAngle) * groupDist;
+    const gy = Math.sin(baseAngle) * groupDist;
+
+    // 節點從群組中心向外扇形展開
+    const fanAngle = Math.min(Math.PI * 0.5, 0.15 + members.length * 0.08);
+    const nodeStartDist = 60;
+    const nodeGap = 45;
+
+    members.forEach((n, mi) => {
+      // 扇形排列：每個節點有不同角度和距離
+      const t = members.length > 1 ? (mi / (members.length - 1) - 0.5) : 0;
+      const nodeAngle = baseAngle + t * fanAngle;
+      const nodeDist = groupDist + nodeStartDist + mi * 18;
+
+      result.push({ ...n,
+        x: Math.cos(nodeAngle) * nodeDist,
+        y: Math.sin(nodeAngle) * nodeDist,
+        vx: 0, vy: 0,
+        r: n.r || getNodeRadius(n),
+        displayColor: n.displayColor || getNodeColor(n),
+        _mmGroup: gName,
+        _mmAngle: baseAngle,
+        _mmGx: gx,
+        _mmGy: gy,
+      });
+    });
+  });
+
+  return result;
+}
+
+// ====== 樹狀圖佈局 ======
+function layoutTree(nodes, edges, oldPos) {
+  const groups = getLayoutGroups(nodes);
+
+  const groupNames = Object.keys(groups);
+  const result = [];
+  const nodeGap = 38;
+  const groupGap = 50;
+  const levelX = 220; // 子節點 x 偏移
+
+  let cursorY = 0;
+
+  groupNames.forEach((gName, gi) => {
+    const members = groups[gName];
+    const groupStartY = cursorY;
+
+    members.forEach((n, mi) => {
+      result.push({ ...n,
+        x: levelX,
+        y: cursorY,
+        vx: 0, vy: 0,
+        r: n.r || getNodeRadius(n),
+        displayColor: n.displayColor || getNodeColor(n),
+        _treeGroup: gName,
+        _treeGroupY: 0, // 稍後補上群組中心 Y
+      });
+      cursorY += nodeGap;
+    });
+
+    // 記錄群組中心 Y 給連線用
+    const groupMidY = (groupStartY + cursorY - nodeGap) / 2;
+    result.forEach(n => { if (n._treeGroup === gName && n._treeGroupY === 0) n._treeGroupY = groupMidY; });
+
+    cursorY += groupGap;
+  });
+
+  // 居中
+  const centerY = cursorY / 2;
+  result.forEach(n => { n.y -= centerY; });
+
+  return result;
 }
 
 function getNodeGroup(n) {
@@ -755,7 +941,8 @@ function getNodeRadius(n) {
 function buildLegend() {
   const groups = {};
   simNodes.forEach(n => { const g=getNodeGroup(n); groups[g]=(groups[g]||0)+1; });
-  let title = currentDimension==='folder'?'資料夾':currentDimension==='timeline'?'時間':'檔案類型';
+  let title = currentDimension==='folder'?'資料夾':currentDimension==='timeline'?'時間':currentDimension==='keyword'?'關鍵字':'檔案類型';
+  if (currentLayout !== 'graph') title = (currentLayout==='mindmap'?'心智圖':'樹狀圖') + ' · ' + title;
   let html = `<h4>${title}</h4>`;
   const sorted = Object.entries(groups).sort((a,b)=>b[1]-a[1]).slice(0,12);
   sorted.forEach(([name,count]) => {
@@ -776,9 +963,148 @@ function toggleCategory(name) {
 document.getElementById('search-box').addEventListener('input', function() { searchTerm=this.value.trim(); buildVisualization(); });
 
 // ====== 物理 ======
+function drawStructuredEdges(ctx, tc) {
+  const groups = {};
+  simNodes.forEach(n => {
+    const g = getNodeGroup(n);
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(n);
+  });
+
+  if (currentLayout === 'mindmap') {
+    const rootName = graphData.meta.rootName || 'Root';
+
+    // 畫各分支
+    Object.entries(groups).forEach(([gName, members]) => {
+      if (!members.length) return;
+      const color = members[0].displayColor || '#6b7280';
+      const gx = members[0]._mmGx || 0;
+      const gy = members[0]._mmGy || 0;
+      const angle = members[0]._mmAngle || 0;
+      const isLeft = Math.abs(angle) > Math.PI / 2;
+
+      // 根 → 群組中心（粗曲線）
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(gx * 0.4, gy * 0.2, gx, gy);
+      ctx.strokeStyle = color + 'aa';
+      ctx.lineWidth = Math.min(5, 2 + members.length * 0.2);
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // 群組中心 → 各節點
+      members.forEach((n, i) => {
+        ctx.beginPath();
+        ctx.moveTo(gx, gy);
+        const cpx = (gx + n.x) / 2;
+        const cpy = (gy + n.y) / 2 + (n.x - gx) * 0.08;
+        ctx.quadraticCurveTo(cpx, cpy, n.x, n.y);
+        ctx.strokeStyle = color + '55';
+        ctx.lineWidth = Math.max(1, 2 - i * 0.08);
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      });
+
+      // 群組標籤
+      ctx.font = 'bold 13px Segoe UI,sans-serif';
+      ctx.fillStyle = color + 'dd';
+      ctx.textAlign = isLeft ? 'right' : 'left';
+      ctx.fillText(gName, gx + (isLeft ? -12 : 12), gy - 14);
+    });
+
+    // 中心根圓
+    ctx.beginPath();
+    ctx.arc(0, 0, 30, 0, Math.PI * 2);
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, 30);
+    grad.addColorStop(0, '#38bdf8');
+    grad.addColorStop(1, '#3b82f6');
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff44';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.font = 'bold 11px Segoe UI,sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const dispName = rootName.length > 10 ? rootName.slice(0, 9) + '..' : rootName;
+    ctx.fillText(dispName, 0, 0);
+    ctx.textBaseline = 'alphabetic';
+
+  } else if (currentLayout === 'tree') {
+    const rootX = -40;
+
+    // 收集群組 Y 範圍
+    const groupInfo = {};
+    simNodes.forEach(n => {
+      const g = getNodeGroup(n);
+      if (!groupInfo[g]) groupInfo[g] = { minY: Infinity, maxY: -Infinity, nodes: [], color: n.displayColor || '#6b7280' };
+      groupInfo[g].minY = Math.min(groupInfo[g].minY, n.y);
+      groupInfo[g].maxY = Math.max(groupInfo[g].maxY, n.y);
+      groupInfo[g].nodes.push(n);
+    });
+
+    const allGroups = Object.entries(groupInfo);
+
+    // 主幹線（從最上到最下群組中心）
+    if (allGroups.length > 1) {
+      const firstMid = (allGroups[0][1].minY + allGroups[0][1].maxY) / 2;
+      const lastMid = (allGroups[allGroups.length-1][1].minY + allGroups[allGroups.length-1][1].maxY) / 2;
+      ctx.beginPath();
+      ctx.moveTo(rootX, firstMid);
+      ctx.lineTo(rootX, lastMid);
+      ctx.strokeStyle = tc.text + '22';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    allGroups.forEach(([gName, info]) => {
+      const color = info.color;
+      const midY = (info.minY + info.maxY) / 2;
+
+      // 群組圓點（在主幹上）
+      ctx.beginPath();
+      ctx.arc(rootX, midY, 6, 0, Math.PI * 2);
+      ctx.fillStyle = color + 'cc';
+      ctx.fill();
+
+      // 群組標籤
+      ctx.font = 'bold 12px Segoe UI,sans-serif';
+      ctx.fillStyle = color + 'dd';
+      ctx.textAlign = 'right';
+      ctx.fillText(gName, rootX - 14, midY + 4);
+
+      // 群組垂直括弧線
+      if (info.nodes.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(rootX + 20, info.minY);
+        ctx.lineTo(rootX + 20, info.maxY);
+        ctx.strokeStyle = color + '44';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+
+      // 水平線到各節點
+      info.nodes.forEach(n => {
+        ctx.beginPath();
+        ctx.moveTo(rootX + 20, n.y);
+        ctx.bezierCurveTo(rootX + 80, n.y, n.x - 60, n.y, n.x - n.r - 4, n.y);
+        ctx.strokeStyle = color + '33';
+        ctx.lineWidth = 1.2;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      });
+    });
+  }
+}
+
 function applyForces() {
   const count = simNodes.length;
   if (count === 0) return;
+  // 心智圖/樹狀圖：固定佈局，不套用物理力
+  if (currentLayout === 'mindmap' || currentLayout === 'tree') return;
 
   // 根據節點數量和間距拉桿動態調整
   const sf = spacingFactor;
@@ -865,10 +1191,17 @@ function draw() {
     const nodeMap = {};
     simNodes.forEach(n => { nodeMap[n.id] = n; });
 
+    // 心智圖/樹狀圖：畫分支線
+    if (currentLayout === 'mindmap' || currentLayout === 'tree') {
+      drawStructuredEdges(ctx, tc);
+    }
+
     // 邊（密集時只顯示 hover/選中節點的連線）
     const dense = simNodes.length > 30;
     const focusId = selectedNode?.id || hoveredNode?.id;
-    visibleEdges.forEach(e => {
+    if (currentLayout === 'mindmap' || currentLayout === 'tree') {
+      // 結構化佈局不畫原始邊
+    } else visibleEdges.forEach(e => {
       const a = nodeMap[e.source], b = nodeMap[e.target];
       if (!a || !b) return;
       const isActive = focusId && (focusId === a.id || focusId === b.id);
@@ -953,9 +1286,17 @@ function draw() {
           ctx.font = fs + 'px Segoe UI,sans-serif';
           ctx.textAlign = 'center';
           ctx.fillStyle = isSel ? tc.labelHi : (isNb || isHov) ? tc.labelMid : tc.labelLow;
-          const maxLen = zoom > 1 ? 28 : 18;
-          const label = n.label.length > maxLen ? n.label.slice(0, maxLen - 2) + '...' : n.label;
-          ctx.fillText(label, n.x, n.y + n.r + 14);
+          const lineMax = zoom > 1 ? 16 : 10;
+          const text = n.stem || n.label;
+          if (text.length <= lineMax) {
+            ctx.fillText(text, n.x, n.y + n.r + 14);
+          } else if (text.length <= lineMax * 2) {
+            ctx.fillText(text.slice(0, lineMax), n.x, n.y + n.r + 14);
+            ctx.fillText(text.slice(lineMax), n.x, n.y + n.r + 14 + fs + 2);
+          } else {
+            ctx.fillText(text.slice(0, lineMax), n.x, n.y + n.r + 14);
+            ctx.fillText(text.slice(lineMax, lineMax * 2 - 2) + '...', n.x, n.y + n.r + 14 + fs + 2);
+          }
         }
       }
     });
@@ -1044,7 +1385,7 @@ function openSidebar(node) {
     btn.setAttribute('data-path',node.path);btn.setAttribute('data-ext',node.ext||'');btn.setAttribute('data-wiki',node.wikiFile||'');
     const isRemote = location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
     const openLabel = isRemote ? '⬇ 下載原始檔案' : '📄 開啟原始檔案';
-    if(node.wikiFile&&node.summary&&!node.summary.startsWith('（')){
+    if(node.wikiFile){
       btn.textContent='📝 閱讀 Wiki 筆記';
       srcBtn.style.display='block'; srcBtn.setAttribute('data-path',node.path);
       srcBtn.textContent = isRemote ? '⬇ 下載原始檔案' : '📂 開啟原始檔案';
@@ -1081,7 +1422,16 @@ function openFile() {
     const projectName = encodeURIComponent(graphData?.meta?.rootName || '');
     const url=wiki?'/wiki/'+projectName+'/'+wiki:'/api/read?path='+encodeURIComponent(path);
     fetch(url).then(r=>{if(!r.ok)throw new Error('無法讀取');return r.text();})
-    .then(text=>{document.getElementById('md-content').innerHTML=marked.parse(text);document.getElementById('md-viewer').classList.add('open');})
+    .then(text=>{
+      // 移除 YAML frontmatter
+      text = text.replace(/^---\n[\s\S]*?\n---\n*/, '');
+      // 移除開頭的 # 標題（側邊欄已顯示）
+      text = text.replace(/^#\s+.+\n+/, '');
+      // 移除開頭的 metadata 表格（| 欄位 | 值 | ... ）
+      text = text.replace(/^\|[^\n]*\n\|[-|\s]*\n(\|[^\n]*\n)*/m, '');
+      document.getElementById('md-content').innerHTML=marked.parse(text.trim());
+      document.getElementById('md-viewer').classList.add('open');
+    })
     .catch(err=>alert('無法讀取：'+err.message));
     return;
   }
@@ -1141,9 +1491,13 @@ function switchProject(name) {
   fetch('/api/switch-project', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ project: name }),
-  }).then(r => r.json()).then(data => {
-    if (data.ok) { location.reload(); }
-    else { alert(data.error); }
+  }).then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(data => {
+    if (data.ok) {
+      window.location.href = window.location.pathname + '?t=' + Date.now();
+    } else { alert(data.error); }
   }).catch(err => alert('切換失敗：' + err.message));
 }
 
@@ -1252,7 +1606,8 @@ function toggleTheme() {
   localStorage.setItem('km-theme', currentTheme);
 }
 function updateThemeBtn() {
-  document.getElementById('theme-btn').textContent = currentTheme === 'dark' ? 'Light' : 'Dark';
+  document.getElementById('theme-icon-dark').style.display = currentTheme === 'dark' ? 'none' : 'block';
+  document.getElementById('theme-icon-light').style.display = currentTheme === 'dark' ? 'block' : 'none';
 }
 document.addEventListener('DOMContentLoaded', updateThemeBtn);
 
@@ -1492,7 +1847,7 @@ function sendQuery() {
       answer = answer.replace(/\[\[([^\]]+)\]\]/g, (_, name) => `[${name}](#node:${name})`);
       let html = marked.parse(answer);
       html = html.replace(/href="#node:([^"]+)"/g, (_, name) =>
-        `href="javascript:void(0)" onclick="findAndSelectNode('${name.replace(/'/g, "\\'")}')" style="color:#7c83fd"`);
+        `href="javascript:void(0)" onclick="findAndSelectNode('${name.replace(/'/g, "\\'")}')" style="color:#3b82f6"`);
       msgs.innerHTML += `<div class="msg-bot">${html}</div>`;
       if (data.model) msgs.innerHTML += `<div class="msg-model">— ${data.model}</div>`;
     }
